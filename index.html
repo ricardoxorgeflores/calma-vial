@@ -141,7 +141,8 @@
               /><button type="button" id="showPass" aria-label="Mostrar contraseña">Ver</button>
             </div>
             <p class="subtle" id="authPasswordHint">
-              Contraseña: mínimo 6 caracteres para iniciar sesión.
+              Para entrar, usa tu contraseña actual (mínimo 6 caracteres). Al crear una nueva:
+              mínimo 8, mayúscula, minúscula, número y carácter especial (! @ # $).
             </p>
             <div id="authPasswordValidation" class="feedback" role="alert" hidden></div>
             <div id="confirmPassWrap" hidden>
@@ -221,6 +222,7 @@
           <div class="header-actions">
             <span id="syncState" class="sync-state" role="status">Conectando…</span
             ><button class="icon-button" id="refreshBtn" aria-label="Actualizar datos">↻</button
+            ><button type="button" class="session-exit" data-action="logout">Cerrar sesión</button
             ><span id="today"></span>
           </div>
         </header>

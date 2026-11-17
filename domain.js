@@ -58,6 +58,15 @@ export function validatePassword(password, confirmation) {
   if (typeof password !== 'string' || password.length < 8)
     throw new Error('Utiliza al menos 8 caracteres para tu contraseña.');
   if (password !== confirmation) throw new Error('Las contraseñas deben coincidir.');
+  if (
+    !/\p{Ll}/u.test(password) ||
+    !/\p{Lu}/u.test(password) ||
+    !/\d/.test(password) ||
+    !/[^\p{L}\p{N}\s]/u.test(password)
+  )
+    throw new Error(
+      'Incluye una mayúscula, una minúscula, un número y un carácter especial, como ! @ # $.',
+    );
 }
 
 function integerInput(value) {

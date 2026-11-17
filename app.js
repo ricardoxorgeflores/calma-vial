@@ -1315,8 +1315,8 @@ function authMode(mode) {
   $('authConfirmPass').disabled = !signup;
   $('authPass').minLength = signup ? 8 : 6;
   $('authPasswordHint').textContent = signup
-    ? 'Contraseña nueva: mínimo 8 caracteres y confirmación coincidente.'
-    : 'Contraseña: mínimo 6 caracteres para iniciar sesión.';
+    ? 'Contraseña nueva: mínimo 8 caracteres, mayúscula, minúscula, número, carácter especial (! @ # $) y confirmación coincidente.'
+    : 'Para entrar, usa tu contraseña actual (mínimo 6 caracteres). Al crear una nueva: mínimo 8, mayúscula, minúscula, número y carácter especial (! @ # $).';
   document.querySelectorAll('[data-action="login-role"]').forEach((button) => {
     button.disabled = signup;
   });
@@ -1372,6 +1372,7 @@ function checkAccessField(input) {
         const minimum = state.authMode === 'signup' ? 8 : 6;
         if (input.value.length < minimum)
           throw new Error(`La contraseña debe tener al menos ${minimum} caracteres.`);
+        if (state.authMode === 'signup') validatePassword(input.value, input.value);
       }
     } catch (error) {
       message = error.message;
@@ -1617,6 +1618,10 @@ document.addEventListener('click', async (event) => {
     id = target.dataset.id,
     actionRevision = state.revision;
   try {
+    if (action === 'logout') {
+      await busy(target, signOutAndShowLogin);
+      return;
+    }
     if (action === 'data-status') {
       dataStatus();
       return;

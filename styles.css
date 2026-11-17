@@ -743,6 +743,45 @@ small {
   gap: 15px;
   align-items: center;
 }
+.session-exit {
+  border: 1px solid #b42318;
+  color: #b42318;
+  background: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.session-exit:focus-visible {
+  outline: 3px solid var(--indigo);
+  outline-offset: 3px;
+}
+.session-exit:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+@media (max-width: 700px) {
+  .workspace-header {
+    flex-wrap: wrap;
+    min-height: 55px;
+    height: auto;
+    gap: 8px;
+    padding-block: 10px;
+  }
+  .header-actions {
+    gap: 8px;
+  }
+  .header-actions #today {
+    display: none;
+  }
+  .session-exit {
+    font-size: 11px;
+    padding: 7px 9px;
+  }
+}
 
 .sync-state {
   display: flex;
