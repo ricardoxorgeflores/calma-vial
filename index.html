@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://wezudavlgzyevhlchuww.supabase.co wss://wezudavlgzyevhlchuww.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <meta name="theme-color" content="#3B3B98" />
+    <meta
+      name="description"
+      content="Tu espacio para conocer tus emociones al conducir. Evaluaciones DAS, diario y modo calma, conectados a tu app Calma Vial."
+    />
+    <title>Calma Vial · Tu espacio para conducir en calma</title>
+    <link rel="icon" href="./logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./vendor/supabase.js" defer></script>
+    <script type="module" src="./bootstrap.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <!-- Acceso: presentación de la marca y formulario de autenticación. -->
+    <div id="authScreen" class="auth-screen">
+      <aside class="auth-story">
+        <a class="brand light" href="#"
+          ><img src="./logo.svg" alt="" width="48" height="48" /><span
+            >Calma Vial<small>UN VIAJE MÁS TRANQUILO</small></span
+          ></a
+        >
+        <div class="story-copy">
+          <span class="eyebrow mint">TU BIENESTAR TAMBIÉN VA CONTIGO</span>
+          <h1>Un poco de calma.<br />Un mejor camino.</h1>
+          <p>Conoce lo que sientes al conducir y encuentra tu propia manera de avanzar.</p>
+        </div>
+        <!-- Ilustración decorativa; no contiene controles interactivos. -->
+        <div class="road-art" aria-hidden="true">
+          <svg viewBox="0 0 600 280">
+            <defs>
+              <linearGradient id="road" x2="1" y2="1">
+                <stop stop-color="#5b5bbd" />
+                <stop offset="1" stop-color="#45459f" />
+              </linearGradient>
+            </defs>
+            <circle cx="465" cy="68" r="34" fill="#7ee0c3" opacity=".8" />
+            <path d="M0 175Q100 80 215 158T450 145T650 160V280H0" fill="#4848a2" />
+            <path d="M0 224Q150 151 288 201T600 177V280H0" fill="#323287" />
+            <path
+              d="M355 280Q485 216 348 185T325 116Q374 92 346 75"
+              fill="none"
+              stroke="url(#road)"
+              stroke-width="62"
+            />
+            <path
+              d="M355 280Q485 216 348 185T325 116Q374 92 346 75"
+              fill="none"
+              stroke="#c1c1ec"
+              stroke-width="3"
+              stroke-dasharray="10 13"
+            />
+            <path
+              d="M90 164v-45m-18 24 18-33 18 33m-29-15 11-23 12 23"
+              fill="none"
+              stroke="#7ee0c3"
+              stroke-width="5"
+              stroke-linecap="round"
+            />
+            <path
+              d="M490 189v-38m-15 19 15-29 15 29"
+              fill="none"
+              stroke="#7ee0c3"
+              stroke-width="5"
+              stroke-linecap="round"
+            />
+          </svg>
+          <div class="floating-note"><span class="note-dot"></span> Cada pausa cuenta.</div>
+        </div>
+        <div class="story-footer">
+          <span>Hecho para nuestros caminos.</span><span>La Paz, Bolivia ↗</span>
+        </div>
+      </aside>
+      <main class="auth-main" id="main">
+        <div class="auth-top">
+          <span>PLATAFORMA DE BIENESTAR VIAL</span><span class="online-dot">Una misma cuenta</span>
+        </div>
+        <div class="auth-content">
+          <span class="section-tag">BIENVENIDO A CALMA VIAL</span>
+          <h2 id="authTitle">Qué bueno verte<br />de nuevo.</h2>
+          <p class="subtle" id="authIntro">
+            Tu historia continúa aquí. Entra con la misma cuenta que usas en tu app móvil.
+          </p>
+          <div class="access-roles" aria-label="Perfiles de la plataforma">
+            <span>◉ Estudiantes</span><span>▦ Administradores</span>
+          </div>
+          <div class="auth-tabs" role="tablist" aria-label="Acceso">
+            <button id="loginTab" role="tab" aria-selected="true">Iniciar sesión</button
+            ><button id="signupTab" role="tab" aria-selected="false">Crear cuenta</button>
+          </div>
+          <p id="startupStatus" class="subtle" role="status">Preparando el acceso seguro…</p>
+          <form id="authForm" method="post">
+            <label for="authEmail">Correo electrónico</label
+            ><input
+              id="authEmail"
+              name="email"
+              type="email"
+              placeholder="tu@correo.com"
+              autocomplete="email"
+              required
+              maxlength="254"
+            />
+            <div class="label-row">
+              <label for="authPass">Contraseña</label
+              ><button class="text-button" type="button" id="forgotBtn">¿La olvidaste?</button>
+            </div>
+            <div class="password-field">
+              <input
+                id="authPass"
+                name="password"
+                type="password"
+                placeholder="Tu contraseña"
+                autocomplete="current-password"
+                minlength="6"
+                required
+              /><button type="button" id="showPass" aria-label="Mostrar contraseña">Ver</button>
+            </div>
+            <div id="confirmPassWrap" hidden>
+              <label for="authConfirmPass">Confirmar contraseña</label>
+              <input
+                id="authConfirmPass"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+                placeholder="Repite tu contraseña"
+                disabled
+              />
+            </div>
+            <label class="check" id="consentWrap" hidden
+              ><input type="checkbox" id="consent" /><span
+                >Tengo al menos 18 años y acepto el uso educativo y orientativo de mis resultados,
+                de acuerdo con la
+                <button class="text-button" type="button" data-action="privacy">
+                  política de privacidad y uso</button
+                >.</span
+              ></label
+            >
+            <div class="feedback" id="authFeedback" role="alert" hidden></div>
+            <button class="button primary full" id="authSubmit" type="submit" disabled>
+              Entrar a mi espacio <span aria-hidden="true">↗</span>
+            </button>
+          </form>
+          <div class="same-account">
+            <span class="sync-symbol">⇄</span>
+            <div>
+              <strong>Tu app y tu web, conectadas.</strong>
+              <p>
+                Consulta tus evaluaciones y tu diario desde cualquier dispositivo con tu cuenta.
+              </p>
+            </div>
+          </div>
+        </div>
+        <footer class="auth-footer">
+          <span>© 2026 Calma Vial</span
+          ><button class="text-button" data-action="privacy">Privacidad y uso</button>
+        </footer>
+      </main>
+    </div>
+    <!-- Espacio autenticado: app.js renderiza cada vista dentro de #page. -->
+    <div id="appScreen" class="app-shell" hidden>
+      <aside class="sidebar">
+        <a href="#inicio" class="brand"
+          ><img src="./logo.svg" width="43" height="43" alt="" /><span
+            >Calma Vial<small>TU ESPACIO PERSONAL</small></span
+          ></a
+        ><span class="nav-label">MI CAMINO</span>
+        <nav aria-label="Navegación principal">
+          <a href="#inicio" data-view="inicio"><span>⌂</span> Mi resumen</a
+          ><a href="#evaluacion" data-view="evaluacion"><span>▤</span> Autoevaluación</a
+          ><a href="#historial" data-view="historial"><span>◷</span> Mis resultados</a
+          ><a href="#diario" data-view="diario"><span>▧</span> Mi diario</a
+          ><a href="#calma" data-view="calma"><span>❋</span> Modo calma</a
+          ><a href="#admin" data-view="admin" id="adminNav" hidden><span>▦</span> Administración</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="mobile-note">
+            <span>⇄</span><strong>Siempre contigo</strong>
+            <p>La misma cuenta.<br />Tu app y tu web.</p>
+          </div>
+          <a href="#perfil" data-view="perfil" class="profile-link"
+            ><span class="avatar" id="userAvatar">CV</span
+            ><span
+              ><strong id="userName">Mi cuenta</strong
+              ><small id="accountRole">Estudiante</small></span
+            ><span>↗</span></a
+          ><button id="logoutBtn" class="logout">Cerrar sesión ↗</button>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="workspace-header">
+          <span id="breadcrumb">Mi espacio / Resumen</span>
+          <div class="header-actions">
+            <span id="syncState" class="sync-state" role="status">Conectando…</span
+            ><button class="icon-button" id="refreshBtn" aria-label="Actualizar datos">↻</button
+            ><span id="today"></span>
+          </div>
+        </header>
+        <main class="page" id="page" tabindex="-1"></main>
+        <footer class="workspace-footer">
+          <span>Calma Vial · Un viaje más tranquilo</span
+          ><button class="text-button" data-action="privacy">Privacidad y uso</button>
+        </footer>
+      </div>
+    </div>
+    <!-- Mensajes de estado y diálogo compartido por los formularios. -->
+    <div id="toast" class="toast" role="status" hidden></div>
+    <dialog id="modal" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h2 id="modalTitle"></h2>
+        <button id="modalClose" class="icon-button" aria-label="Cerrar ventana">×</button>
+      </div>
+      <div id="modalBody"></div>
+    </dialog>
+    <noscript
+      >Activa JavaScript para usar el inicio de sesión y consultar tus datos de Calma
+      Vial.</noscript
+    >
+  </body>
+</html>

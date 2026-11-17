@@ -1,0 +1,1817 @@
+import { api, db, unwrap } from './api.js';
+import {
+  QUESTIONS,
+  LABELS,
+  DIARY_FACTORS,
+  MOODS,
+  MOMENTS,
+  VEHICLES,
+  roleLabel,
+  recommendations,
+  adminSummary,
+  appRedirectUrl,
+  calculate,
+  csv,
+} from './domain.js';
+
+// Estado compartido y utilidades de presentación.
+const $ = (id) => document.getElementById(id);
+const escape = (value) =>
+  String(value ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+
+// revision permite descartar respuestas antiguas al cambiar de cuenta.
+const state = {
+  session: null,
+  profile: null,
+  evaluations: [],
+  diary: [],
+  admin: null,
+  view: 'inicio',
+  authMode: 'login',
+  hydrating: false,
+  loading: false,
+  error: null,
+  revision: 0,
+  lastSync: 0,
+  evalStep: -1,
+  evalRequestId: null,
+  evaluationSaving: false,
+  answers: Array(14).fill(null),
+  context: null,
+  historyFilter: '',
+  diaryFilter: '',
+  historySearch: '',
+  adminSearch: '',
+  pattern: 'box',
+  breathing: false,
+};
+const titles = {
+  inicio: 'Resumen',
+  evaluacion: 'Autoevaluación',
+  historial: 'Mis resultados',
+  diario: 'Mi diario',
+  calma: 'Modo calma',
+  perfil: 'Mi perfil',
+  admin: 'Administración',
+};
+let breathTimer, toastTimer, syncChannel, modalTrigger;
+
+function date(value, short = false) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? 'Sin fecha'
+    : d.toLocaleDateString('es-BO', {
+        day: 'numeric',
+        month: 'short',
+        ...(short ? {} : { year: 'numeric' }),
+        timeZone: 'America/La_Paz',
+      });
+}
+const number = (n) => (Number.isFinite(Number(n)) ? Number(n).toFixed(1) : '—');
+const name = () =>
+  [state.profile?.nombres, state.profile?.apellido_paterno].filter(Boolean).join(' ') ||
+  state.session?.user.email?.split('@')[0] ||
+  'Mi cuenta';
+const firstName = () => state.profile?.nombres?.split(' ')[0] || 'bienvenido';
+
+// Traduce errores técnicos a mensajes que puede entender el usuario.
+function errorText(e) {
+  const msg = String(e?.message || e || 'Error inesperado');
+  if (/invalid login credentials/i.test(msg))
+    return 'El correo o la contraseña no coinciden. Usa tu cuenta de la app móvil.';
+  if (/email not confirmed/i.test(msg)) return 'Confirma tu correo antes de iniciar sesión.';
+  if (/already registered/i.test(msg))
+    return 'Este correo ya tiene una cuenta. Inicia sesión con tu contraseña.';
+  if (/fetch|network|load failed/i.test(msg))
+    return 'No se pudo conectar. Comprueba tu Internet y vuelve a intentarlo.';
+  if (/rate limit|too many requests|security purposes/i.test(msg))
+    return 'Se hicieron varios intentos. Espera un momento antes de volver a probar.';
+  if (/row.level|policy|permission denied/i.test(msg))
+    return 'Tu cuenta no tiene permiso para esta operación. Revisa tus permisos de acceso.';
+  if (/duplicate key/i.test(msg))
+    return 'Ese dato ya está registrado. Revisa tu usuario o documento.';
+  if (/session|jwt expired/i.test(msg)) return 'Tu sesión venció. Vuelve a iniciar sesión.';
+  return msg;
+}
+
+function feedback(id, message, success = false) {
+  const el = $(id);
+  el.textContent = message;
+  el.classList.toggle('success', success);
+  el.hidden = !message;
+}
+
+function toast(message, error = false) {
+  clearTimeout(toastTimer);
+  $('toast').textContent = message;
+  $('toast').classList.toggle('error', error);
+  $('toast').hidden = false;
+  toastTimer = setTimeout(() => ($('toast').hidden = true), 6500);
+}
+
+// Evita envíos duplicados y restaura el botón aunque falle la operación.
+async function busy(button, action) {
+  if (button?.disabled) return;
+  const old = button?.innerHTML;
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Un momento…';
+  }
+  try {
+    return await action();
+  } finally {
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.innerHTML = old;
+    }
+  }
+}
+
+function openModal(title, html) {
+  if (!$('modal').open) modalTrigger = document.activeElement;
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = html;
+  if (!$('modal').open) $('modal').showModal();
+  paintBars();
+}
+
+function closeModal() {
+  $('modal').close();
+  modalTrigger?.focus?.();
+}
+
+// Plantillas reutilizables. Escapar los datos externos antes de insertarlos en HTML.
+function heading(title, subtitle, action = '') {
+  return /* HTML */ `<div class="page-heading">
+    <div>
+      <span class="eyebrow"
+        >${state.profile?.rol === 'admin' ? 'CAMPUS · ADMINISTRACIÓN' : 'CAMPUS · MI BIENESTAR'}</span
+      >
+      <h1>${title}</h1>
+      <p>${subtitle}</p>
+    </div>
+    ${action}
+  </div>`;
+}
+
+function empty(title, text, action = '') {
+  return /* HTML */ `<div class="empty">
+    <span aria-hidden="true">◌</span>
+    <h3>${title}</h3>
+    <p>${text}</p>
+    ${action}
+  </div>`;
+}
+
+function badge(level) {
+  return /* HTML */ `<span
+    class="badge ${['Bajo', 'Moderado', 'Elevado'].includes(level) ? level.toLowerCase() : ''}"
+    >${escape(level || 'Sin evaluar')}</span
+  >`;
+}
+
+function paintBars() {
+  document.querySelectorAll('[data-width]').forEach((el) => {
+    el.style.width = `${Math.max(0, Math.min(100, Number(el.dataset.width) || 0))}%`;
+  });
+  document.querySelectorAll('[data-height]').forEach((el) => {
+    el.style.height = `${Math.max(1, Math.min(100, Number(el.dataset.height) || 0))}%`;
+  });
+}
+
+function bars(ev) {
+  return /* HTML */ `<div class="factors">
+    ${[
+      ['Avance impedido', ev.prom_avance],
+      ['Conducción temeraria', ev.prom_temeraria],
+      ['Hostilidad directa', ev.prom_hostilidad],
+    ]
+      .map(
+        ([label, value]) =>
+          /* HTML */ `<div class="factor-row">
+            <div class="factor-label">
+              <span>${label}</span><strong>${number(value)} <span>/ 5</span></strong>
+            </div>
+            <div class="track">
+              <span
+                data-width="${Number(value) * 20}"
+                role="meter"
+                aria-label="${label}"
+                aria-valuenow="${Number(value) || 0}"
+                aria-valuemin="0"
+                aria-valuemax="5"
+              ></span>
+            </div>
+          </div>`,
+      )
+      .join('')}
+  </div>`;
+}
+
+function score(ev) {
+  return /* HTML */ `<div class="score-summary">
+      <div class="score-dial"><strong>${escape(ev.total)}</strong><small>de 70 puntos</small></div>
+      <div>
+        ${badge(ev.nivel)}
+        <h3>Tu último punto de partida</h3>
+        <p>
+          ${date(ev.creado_en)} · Promedio ${number(ev.prom_general ?? Number(ev.total) / 14)} / 5
+        </p>
+      </div>
+    </div>
+    ${bars(ev)}`;
+}
+
+function resultNote() {
+  return '<p class="mini-note">Los niveles son orientativos y no constituyen un diagnóstico. Reflejan tus respuestas en ese momento.</p>';
+}
+
+// Vistas del espacio personal: resumen, resultados y diario.
+function dashboard() {
+  const latest = state.evaluations[0];
+  const month = new Date().toLocaleDateString('es-BO', {
+    month: 'long',
+    timeZone: 'America/La_Paz',
+  });
+  return (
+    heading(
+      `Hola, ${escape(firstName())} <span aria-hidden="true">☀</span>`,
+      'Este es tu espacio para conocerte y avanzar con más calma.',
+      '<a class="button" href="#evaluacion">Nueva evaluación <span>＋</span></a>',
+    ) +
+    /* HTML */ `<section class="hero-card">
+        <div class="hero-copy">
+          <span class="eyebrow">CADA CAMINO EMPIEZA CONTIGO</span>
+          <h2>Conducir en calma<br />también se aprende.</h2>
+          <p>
+            Date un momento para reconocer cómo te sientes. Pequeñas pausas pueden cambiar tu día.
+          </p>
+          <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
+        </div>
+        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg" alt="" /></div>
+      </section>
+      <div class="stats-grid">
+        <article class="stat-card">
+          <span class="stat-icon">▤</span>
+          <div>
+            <small>Evaluaciones realizadas</small><strong>${state.evaluations.length}</strong
+            ><em>Tu recorrido hasta hoy</em>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-icon">▧</span>
+          <div>
+            <small>Momentos registrados</small><strong>${state.diary.length}</strong
+            ><em>En tu diario personal</em>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-icon">◷</span>
+          <div>
+            <small>Última evaluación</small
+            ><strong>${latest ? date(latest.creado_en, true) : '—'}</strong
+            ><em>${latest ? 'Un paso para conocerte' : 'Tu primer paso te espera'}</em>
+          </div>
+        </article>
+      </div>
+      <div class="dashboard-grid">
+        <div>
+          <section class="card">
+            <div class="card-title">
+              <h2>Así te sientes al conducir</h2>
+              <a class="text-button" href="#historial">Ver resultados ↗</a>
+            </div>
+            ${latest ? score(latest) + resultNote() : empty('Tu recorrido empieza aquí', 'Completa tu primera autoevaluación para conocer tus factores de ira al conducir.', '<a class="button secondary" href="#evaluacion">Hacer mi evaluación ↗</a>')}
+          </section>
+          ${
+            state.evaluations.length > 1
+              ? /* HTML */ `<section class="card trend-card">
+                  <div class="card-title">
+                    <h2>Tu recorrido en el tiempo</h2>
+                    <small>Últimas ${Math.min(10, state.evaluations.length)} evaluaciones</small>
+                  </div>
+                  <div
+                    class="trend-chart"
+                    role="img"
+                    aria-label="Totales de las últimas evaluaciones: ${state.evaluations
+                      .slice(0, 10)
+                      .reverse()
+                      .map((e) => e.total)
+                      .join(', ')}"
+                  >
+                    ${state.evaluations
+                      .slice(0, 10)
+                      .reverse()
+                      .map(
+                        (ev) =>
+                          /* HTML */ `<div
+                            class="trend-column"
+                            data-height="${(Number(ev.total) / 70) * 100}"
+                            title="${date(ev.creado_en)}: ${Number(ev.total)} / 70"
+                          ></div>`,
+                      )
+                      .join('')}
+                  </div>
+                  <div class="chart-caption">
+                    <span>Más antiguas</span><span>Más reciente</span>
+                  </div>
+                </section>`
+              : ''
+          }
+        </div>
+        <div>
+          <section class="card calm-card">
+            <span class="eyebrow">UN MOMENTO PARA TI</span
+            ><span class="leaf" aria-hidden="true">❋</span>
+            <h2>Respira.<br />Vuelve a tu centro.</h2>
+            <p>Una pausa guiada para continuar a tu propio ritmo.</p>
+            <a class="button" href="#calma">Entrar en modo calma ↗</a>
+          </section>
+          <section class="card">
+            <div class="card-title">
+              <h2>Tu diario, tu espacio</h2>
+              <a class="text-button" href="#diario">Ver todo ↗</a>
+            </div>
+            ${
+              state.diary.length
+                ? state.diary
+                    .slice(0, 3)
+                    .map(
+                      (row) =>
+                        /* HTML */ `<div class="recent-row">
+                          <span class="recent-dot"></span>
+                          <div>
+                            <strong
+                              >${escape(row.situacion.slice(0, 85))}${row.situacion.length > 85 ? '…' : ''}</strong
+                            ><small
+                              >${date(row.creado_en, true)} · Intensidad
+                              ${escape(row.intensidad)}/5</small
+                            >
+                          </div>
+                        </div>`,
+                    )
+                    .join('')
+                : empty(
+                    'Cada momento cuenta',
+                    'Anota lo que viviste y cómo reaccionaste.',
+                    '<button class="text-button" data-action="new-diary">Escribir mi primer registro ↗</button>',
+                  )
+            }
+          </section>
+        </div>
+      </div>`
+  );
+}
+
+function history() {
+  const filtered = state.evaluations.filter(
+    (e) =>
+      (!state.historyFilter || e.nivel === state.historyFilter) &&
+      [e.nivel, e.momento, e.vehiculo, date(e.creado_en)]
+        .join(' ')
+        .toLowerCase()
+        .includes(state.historySearch.toLowerCase()),
+  );
+  return (
+    heading(
+      'Mis resultados',
+      'Cada evaluación es una oportunidad para conocerte mejor.',
+      '<button class="button ghost" data-action="export-results">Exportar CSV ↓</button>',
+    ) +
+    /* HTML */ `<section class="card">
+      <div class="toolbar">
+        <span class="subtle">${state.evaluations.length} evaluaciones en tu cuenta</span
+        ><input
+          id="historySearch"
+          type="search"
+          aria-label="Buscar evaluaciones"
+          placeholder="Buscar por fecha, vehículo o momento"
+          value="${escape(state.historySearch)}"
+        /><select id="historyFilter" aria-label="Filtrar por nivel">
+          <option value="">Todos los niveles</option>
+          ${['Bajo', 'Moderado', 'Elevado'].map((v) => /* HTML */ `<option ${state.historyFilter === v ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      ${
+        filtered.length
+          ? /* HTML */ `<div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Total</th>
+                    <th>Nivel orientativo</th>
+                    <th>Momento</th>
+                    <th>Detalle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filtered
+                    .map(
+                      (e) =>
+                        /* HTML */ `<tr>
+                          <td>${date(e.creado_en)}</td>
+                          <td><strong>${escape(e.total)}</strong> / 70</td>
+                          <td>${badge(e.nivel)}</td>
+                          <td>${escape(e.momento || '—')}</td>
+                          <td>
+                            <button
+                              class="text-button"
+                              data-action="result"
+                              data-id="${escape(e.id)}"
+                            >
+                              Ver resultado ↗</button
+                            ><button
+                              class="text-button danger-text"
+                              data-action="delete-evaluation"
+                              data-id="${escape(e.id)}"
+                              aria-label="Eliminar evaluación del ${date(e.creado_en)}"
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>`,
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>`
+          : empty(
+              state.evaluations.length
+                ? 'Sin resultados para este nivel'
+                : 'Aún no tienes evaluaciones',
+              state.evaluations.length
+                ? 'Cambia el filtro para ver el resto de tu historial.'
+                : 'Las que realices aquí y en tu app móvil aparecerán en este historial.',
+              '<a class="button secondary" href="#evaluacion">Nueva evaluación ↗</a>',
+            )
+      }${resultNote()}
+    </section>`
+  );
+}
+
+function journal() {
+  const rows = state.diary.filter((r) => !state.diaryFilter || r.factor === state.diaryFilter);
+  return (
+    heading(
+      'Mi diario',
+      'Un lugar para entender lo que pasó y cómo te sentiste.',
+      '<button class="button" data-action="new-diary">Nuevo registro ＋</button>',
+    ) +
+    /* HTML */ `<div class="journal-layout">
+      <section class="card">
+        <div class="toolbar">
+          <span class="subtle">${state.diary.length} momentos guardados</span
+          ><select id="diaryFilter" aria-label="Filtrar diario por factor">
+            <option value="">Todos los factores</option>
+            ${Object.entries(DIARY_FACTORS)
+              .map(
+                ([k, v]) =>
+                  /* HTML */ `<option value="${k}" ${k === state.diaryFilter ? 'selected' : ''}>
+                    ${v}
+                  </option>`,
+              )
+              .join('')}
+          </select>
+        </div>
+        ${
+          rows.length
+            ? rows
+                .map(
+                  (row) =>
+                    /* HTML */ `<article class="journal-entry">
+                      <div class="entry-meta">
+                        <span>${date(row.creado_en)}</span
+                        ><span class="badge"
+                          >${escape(DIARY_FACTORS[row.factor] || row.factor || 'Sin factor')}</span
+                        >
+                      </div>
+                      <h3>${escape(row.situacion)}</h3>
+                      <div class="intensity" aria-label="Intensidad ${Number(row.intensidad)} de 5">
+                        ${Array.from({ length: 5 }, (_, i) => /* HTML */ `<i class="${i < row.intensidad ? 'filled' : ''}"></i>`).join('')}
+                      </div>
+                      ${row.reaccion ? /* HTML */ `<p><strong>Mi reacción:</strong> ${escape(row.reaccion)}</p>` : ''}${row.nota ? /* HTML */ `<p>${escape(row.nota)}</p>` : ''}
+                      <div class="entry-actions">
+                        <button
+                          class="text-button"
+                          data-action="edit-diary"
+                          data-id="${escape(row.id)}"
+                        >
+                          Editar</button
+                        ><button
+                          class="text-button"
+                          data-action="delete-diary"
+                          data-id="${escape(row.id)}"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </article>`,
+                )
+                .join('')
+            : empty(
+                'Dale espacio a lo que sientes',
+                state.diary.length
+                  ? 'No hay registros con este factor. Prueba con otro filtro.'
+                  : 'Piensa en una situación reciente al conducir. ¿Qué pasó? ¿Cómo reaccionaste?',
+                '<button class="button secondary" data-action="new-diary">Escribir un registro ↗</button>',
+              )
+        }
+      </section>
+      <aside class="journal-prompt">
+        <span class="eyebrow">ESCRIBIR TAMBIÉN ES UNA PAUSA</span>
+        <h3>No necesitas tener<br />todas las respuestas.</h3>
+        <p>
+          Empieza por describir lo que ocurrió, sin juzgarte. Reconocer una emoción es un primer
+          paso.
+        </p>
+        <p>Tu diario se guarda en tu cuenta y puedes consultarlo en la app móvil.</p>
+      </aside>
+    </div>`
+  );
+}
+
+function diaryModal(row) {
+  openModal(
+    row ? 'Editar mi registro' : 'Un momento para recordar',
+    /* HTML */ `<form id="diaryForm" data-id="${escape(row?.id || '')}">
+      <label for="situation">¿Qué pasó?</label
+      ><textarea
+        name="situacion"
+        id="situation"
+        required
+        maxlength="2000"
+        placeholder="Por ejemplo: un auto se cruzó en mi carril…"
+      >
+${escape(row?.situacion || '')}</textarea>
+      <div class="form-grid">
+        <div>
+          <label for="factor">Factor</label
+          ><select id="factor" name="factor" required>
+            <option value="">Elige una opción</option>
+            ${Object.entries(DIARY_FACTORS)
+              .map(
+                ([k, v]) =>
+                  /* HTML */ `<option value="${k}" ${row?.factor === k ? 'selected' : ''}>
+                    ${v}
+                  </option>`,
+              )
+              .join('')}
+          </select>
+        </div>
+        <div>
+          <label for="intensity">Intensidad</label
+          ><select id="intensity" name="intensidad" required>
+            <option value="">¿Cuánto sentiste?</option>
+            ${LABELS.map((l, i) => /* HTML */ `<option value="${i + 1}" ${Number(row?.intensidad) === i + 1 ? 'selected' : ''}>${i + 1} · ${l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <label for="reaction">¿Cómo reaccionaste?</label
+      ><input
+        id="reaction"
+        name="reaccion"
+        maxlength="2000"
+        value="${escape(row?.reaccion || '')}"
+        placeholder="Lo que hiciste o pensaste"
+      /><label for="note">Una reflexión (opcional)</label
+      ><textarea
+        name="nota"
+        id="note"
+        maxlength="3000"
+        placeholder="¿Qué te gustaría recordar la próxima vez?"
+      >
+${escape(row?.nota || '')}</textarea>
+      <div class="feedback" id="diaryFeedback" hidden role="alert"></div>
+      <div class="form-actions">
+        <button class="button ghost" type="button" data-action="close-modal">Cancelar</button
+        ><button class="button" type="submit">Guardar registro ↗</button>
+      </div>
+    </form>`,
+  );
+}
+
+// Cuestionario: contexto previo, respuestas por situación y resultado.
+function evaluation() {
+  if (state.evalStep === -1)
+    return (
+      heading(
+        'Un momento para conocerte',
+        'Autoevaluación de ira al conducir · Driving Anger Scale',
+      ) +
+      /* HTML */ `<section class="card eval-context">
+        <div class="card-title">
+          <h2>Antes de empezar</h2>
+          <span class="badge">14 situaciones · 3–5 min</span>
+        </div>
+        <p class="subtle">
+          Imagina cada situación mientras conduces e indica cuánto enojo te provocaría. No hay
+          respuestas correctas o incorrectas.
+        </p>
+        <div class="notice safe">
+          Realiza esta evaluación antes o después de conducir, cuando estés en un lugar seguro.
+        </div>
+        <form id="evalContextForm">
+          <div class="form-grid">
+            <div>
+              <label for="moment">¿En qué momento estás?</label
+              ><select id="moment" name="momento" required>
+                ${MOMENTS.map((value) => `<option>${value}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label for="vehicle">Tipo de vehículo</label
+              ><select id="vehicle" name="vehiculo" required>
+                ${VEHICLES.slice(0, 4)
+                  .map((value) => `<option>${value}</option>`)
+                  .join('')}
+              </select>
+            </div>
+            <div class="wide">
+              <label for="mood">¿Cómo te sientes ahora?</label
+              ><select id="mood" name="animo">
+                ${MOODS.map((label, index) => `<option value="${index + 1}">${label}</option>`).join('')}
+              </select>
+            </div>
+            <label class="check wide"
+              ><input type="checkbox" required /><span
+                >Confirmo que estoy en un lugar seguro y no estoy conduciendo.</span
+              ></label
+            >
+          </div>
+          <div class="form-actions">
+            <button class="button" type="submit">Comenzar mi evaluación ↗</button>
+          </div>
+        </form>
+        ${resultNote()}
+      </section>`
+    );
+  const i = state.evalStep;
+  return (
+    heading('Mi autoevaluación', 'Piensa en cada situación y responde a tu propio ritmo.') +
+    /* HTML */ `<section class="card eval-context">
+      <div class="eval-progress">
+        <span>SITUACIÓN ${i + 1} DE 14</span
+        ><span>${state.answers.filter(Boolean).length} respondidas</span>
+      </div>
+      <div class="track"><span data-width="${((i + 1) / 14) * 100}"></span></div>
+      <h2 class="eval-question">${QUESTIONS[i][0]}</h2>
+      <p class="subtle">¿Cuánto enojo te provocaría esta situación?</p>
+      <div class="eval-options" role="group" aria-label="Cuánto enojo te provoca">
+        ${LABELS.map((l, j) => /* HTML */ `<button class="answer ${state.answers[i] === j + 1 ? 'selected' : ''}" data-action="answer" data-value="${j + 1}" aria-pressed="${state.answers[i] === j + 1}"><strong>${j + 1}</strong>${l}</button>`).join('')}
+      </div>
+      <div class="question-nav">
+        <button class="button ghost" data-action="eval-prev">
+          ← ${i === 0 ? 'Contexto' : 'Anterior'}</button
+        ><button
+          class="button"
+          data-action="eval-next"
+          ${!state.answers[i] || state.evaluationSaving ? 'disabled' : ''}
+        >
+          ${i === 13 ? 'Guardar y ver resultado' : 'Siguiente'} ↗
+        </button>
+      </div>
+      <div class="question-dots" aria-label="Saltar a una pregunta">
+        ${state.answers.map((a, j) => /* HTML */ `<button data-action="eval-jump" data-value="${j}" class="${a ? 'done ' : ''}${j === i ? 'current' : ''}" aria-label="Pregunta ${j + 1}${a ? ', respondida' : ''}"></button>`).join('')}
+      </div>
+      <div id="evalFeedback" class="feedback" hidden role="alert"></div>
+    </section>`
+  );
+}
+
+function resultModal(ev) {
+  const advice = recommendations(ev);
+  const top = (ev.respuestas || [])
+    .map((value, i) => ({ value, text: QUESTIONS[i]?.[0] }))
+    .filter((q) => q.value >= 4 && q.text)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3);
+  const max = [
+    ['Avance impedido', ev.prom_avance],
+    ['Conducción temeraria', ev.prom_temeraria],
+    ['Hostilidad directa', ev.prom_hostilidad],
+  ].sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+  openModal(
+    'Tu resultado',
+    score(ev) +
+      /* HTML */ `<p class="status-detail">
+          Momento: ${escape(ev.momento || 'No indicado')}<br />Vehículo:
+          ${escape(ev.vehiculo || 'No indicado')}<br />Estado de ánimo:
+          ${escape(MOODS[Number(ev.animo) - 1] || 'No indicado')}
+        </p>
+        <div class="notice">
+          El factor con mayor promedio es <strong>${max[0]}</strong>. Observa qué situaciones
+          influyen más en tus respuestas y anota lo que quieras recordar en tu diario.
+        </div>
+        <section class="result-advice">
+          <h3>Ideas para tu próximo recorrido</h3>
+          <ul>
+            ${advice.items.map((item) => `<li>${escape(item)}</li>`).join('')}
+          </ul>
+        </section>
+        ${top.length ? `<section class="result-advice"><h3>Situaciones que más enojo te generan</h3><ul>${top.map((q) => `<li>${escape(q.text)} <strong>${q.value}/5</strong></li>`).join('')}</ul></section>` : ''}
+        ${resultNote()}
+        <div class="form-actions">
+          <button class="button secondary" data-action="result-calm">Tomarme una pausa ↗</button
+          ><button class="button ghost" data-action="copy-result" data-id="${escape(ev.id)}">
+            Copiar resumen</button
+          ><button class="button" data-action="close-modal">Entendido</button>
+        </div>`,
+  );
+}
+
+// El ejercicio de respiración solo mantiene estado local; no guarda registros.
+const patterns = {
+  box: {
+    name: '4 · 4 · 4 · 4',
+    phases: [
+      ['Inhala', 4],
+      ['Retén', 4],
+      ['Exhala', 4],
+      ['Pausa', 4],
+    ],
+  },
+  relax: {
+    name: '4 · 7 · 8',
+    phases: [
+      ['Inhala', 4],
+      ['Retén', 7],
+      ['Exhala', 8],
+    ],
+  },
+  gentle: {
+    name: '5 · 5',
+    phases: [
+      ['Inhala', 5],
+      ['Exhala', 5],
+    ],
+  },
+};
+
+function calm() {
+  return (
+    heading('Tu momento de calma', 'Baja el ritmo. Este momento es para ti.') +
+    /* HTML */ `<section class="card breathing-layout">
+      <span class="section-tag">RESPIRACIÓN GUIADA</span>
+      <div class="pattern-tabs" role="group" aria-label="Patrón de respiración">
+        ${Object.entries(patterns)
+          .map(
+            ([k, p]) =>
+              /* HTML */ `<button
+                data-action="pattern"
+                data-value="${k}"
+                class="${state.pattern === k ? 'active' : ''}"
+                aria-pressed="${state.pattern === k}"
+              >
+                ${p.name}
+              </button>`,
+          )
+          .join('')}
+      </div>
+      <div class="breathing-stage">
+        <div class="breathing-orb" id="breathOrb">
+          <strong id="breathPhase">A tu ritmo</strong
+          ><span id="breathCount">Un momento para respirar</span>
+        </div>
+      </div>
+      <div class="breath-actions">
+        <button class="button" data-action="breath-toggle" id="breathToggle">Comenzar ↗</button
+        ><button class="button ghost" data-action="breath-reset">Reiniciar</button>
+      </div>
+      <p id="breathCycles" role="status">Elige el patrón con el que te sientas más cómodo.</p>
+      <div class="notice safe">
+        Practica solo cuando estés detenido en un lugar seguro. Mantén una respiración cómoda y
+        detén el ejercicio si te incomoda.
+      </div>
+    </section>`
+  );
+}
+
+function stopBreathing() {
+  clearInterval(breathTimer);
+  state.breathing = false;
+}
+
+function startBreathing() {
+  if (state.breathing) {
+    stopBreathing();
+    $('breathToggle').textContent = 'Comenzar de nuevo ↗';
+    return;
+  }
+  state.breathing = true;
+  const phases = patterns[state.pattern].phases;
+  let phase = 0,
+    elapsed = 0,
+    cycles = 0;
+  let last = performance.now();
+  $('breathToggle').textContent = 'Detener';
+  function paint() {
+    const [label, seconds] = phases[phase];
+    $('breathPhase').textContent = label;
+    $('breathCount').textContent = Math.max(1, Math.ceil(seconds - elapsed)) + ' segundos';
+    $('breathOrb').style.transitionDuration = seconds + 's';
+    $('breathOrb').style.transform =
+      label === 'Inhala' ? 'scale(1.13)' : label === 'Exhala' ? 'scale(.9)' : 'scale(1)';
+    $('breathCycles').textContent =
+      `${cycles} ${cycles === 1 ? 'ciclo completado' : 'ciclos completados'} · Sigue el ritmo de la esfera.`;
+  }
+  paint();
+  breathTimer = setInterval(() => {
+    if (!document.hasFocus() || document.hidden) {
+      last = performance.now();
+      return;
+    }
+    const now = performance.now();
+    elapsed += (now - last) / 1000;
+    last = now;
+    if (elapsed >= phases[phase][1]) {
+      elapsed = 0;
+      phase = (phase + 1) % phases.length;
+      if (phase === 0) cycles++;
+    }
+    paint();
+  }, 200);
+}
+
+// Formularios de perfil y vista administrativa. Los permisos finales los aplica RLS.
+function field(id, label, value = '', type = 'text', extra = '') {
+  return /* HTML */ `<div>
+    <label for="${id}">${label}</label
+    ><input id="${id}" name="${id}" type="${type}" value="${escape(value)}" ${extra} />
+  </div>`;
+}
+
+function profile() {
+  const p = state.profile || {};
+  return (
+    heading(
+      p.id ? 'Mi perfil' : 'Completa tu perfil',
+      p.id
+        ? 'Tu información, compartida con la app móvil.'
+        : 'Un último paso para empezar tu recorrido.',
+    ) +
+    /* HTML */ `<section class="card narrow">
+      <div class="profile-summary">
+        <span class="avatar">${escape(name().slice(0, 2).toUpperCase())}</span>
+        <div>
+          <h2>${escape(name())}</h2>
+          <p>${escape(state.session.user.email)}</p>
+        </div>
+      </div>
+      ${!p.id ? '<div class="notice">Tu cuenta está creada. Completa los datos de tu perfil para guardar evaluaciones y registros.</div>' : ''}
+      <form id="profileForm">
+        <div class="form-grid">
+          ${field('nombres', 'Nombres', p.nombres, 'text', 'required maxlength="100" autocomplete="given-name"')}${field('apellido_paterno', 'Apellido paterno', p.apellido_paterno, 'text', 'maxlength="100" autocomplete="family-name"')}${field('apellido_materno', 'Apellido materno', p.apellido_materno, 'text', 'maxlength="100"')}${field('usuario', 'Nombre de usuario', p.usuario, 'text', 'required maxlength="50" autocomplete="username"')}${field('documento', 'Documento de identidad (opcional)', p.documento, 'text', 'maxlength="30"')}${field('edad', 'Edad', p.edad, 'number', 'required min="18" max="99" step="1"')}
+          <div>
+            <label for="genero">Género</label
+            ><select id="genero" name="genero">
+              ${['Masculino', 'Femenino', 'Otro', 'Prefiero no decirlo'].map((v) => /* HTML */ `<option ${p.genero === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          ${field('telefono', 'Teléfono', p.telefono, 'tel', 'maxlength="30" autocomplete="tel"')}${field('direccion', 'Dirección', p.direccion, 'text', 'maxlength="250" autocomplete="street-address"')}
+        </div>
+        <div class="feedback" id="profileFeedback" hidden role="alert"></div>
+        <div class="form-actions">
+          <button class="button" type="submit">Guardar perfil ↗</button>
+        </div>
+      </form>
+      <p class="status-detail">${roleLabel(p.rol)} · Los permisos se validan en el servidor.</p>
+    </section>`
+  );
+}
+
+function admin() {
+  if (!state.admin)
+    return (
+      heading('Administración', 'Información de las cuentas autorizadas.') +
+      '<div class="loading-state"><div class="spinner"></div>Cargando datos autorizados…</div>'
+    );
+  const summary = adminSummary(state.admin.evaluations);
+  return (
+    heading(
+      'Administración',
+      'Consulta de usuarios y seguimiento de evaluaciones.',
+      '<button class="button ghost" data-action="export-admin">Exportar datos seudonimizados ↓</button>',
+    ) +
+    /* HTML */ `<div class="platform-metrics">
+        <article class="metric-card">
+          <span>Comunidad</span><strong>${state.admin.profiles.length}</strong
+          ><small>Cuentas registradas</small>
+        </article>
+        <article class="metric-card">
+          <span>Participación</span><strong>${summary.active}</strong
+          ><small>Personas con evaluaciones</small>
+        </article>
+        <article class="metric-card">
+          <span>Autoevaluaciones</span><strong>${summary.count}</strong
+          ><small>Registros autorizados</small>
+        </article>
+        <article class="metric-card">
+          <span>Promedio orientativo</span
+          ><strong>${summary.count ? number(summary.mean) : '—'}<em>/ 5</em></strong
+          ><small>Sin interpretación diagnóstica</small>
+        </article>
+      </div>
+      <div class="insights-grid">
+        <section class="card">
+          <div class="card-title">
+            <h2>Factores de la comunidad</h2>
+            <span class="badge">DAS · 14 ítems</span>
+          </div>
+          ${summary.count ? bars(summary.factors) : '<p class="subtle">Los factores aparecerán al registrar evaluaciones.</p>'}
+        </section>
+        <section class="card">
+          <div class="card-title"><h2>Distribución de resultados</h2></div>
+          <div class="level-distribution">
+            ${Object.entries(summary.levels)
+              .map(
+                ([level, count]) =>
+                  `<div class="factor-row"><div class="factor-label">${badge(level)}<strong>${count}</strong></div><div class="track"><span data-width="${summary.count ? (count / summary.count) * 100 : 0}"></span></div></div>`,
+              )
+              .join('')}
+          </div>
+        </section>
+      </div>
+      <section class="card">
+        <div class="card-title">
+          <div>
+            <h2>Comunidad Calma Vial</h2>
+            <p class="subtle">Estudiantes y administradores · acceso según permisos</p>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input
+            id="adminSearch"
+            type="search"
+            placeholder="Buscar por nombre o correo"
+            aria-label="Buscar usuarios"
+            value="${escape(state.adminSearch)}"
+          />
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Evaluaciones</th>
+                <th>Último nivel</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="adminRows">
+              ${adminRows(state.adminSearch)}
+            </tbody>
+          </table>
+        </div>
+        <p class="mini-note">
+          Solo se muestran registros autorizados por el servidor. El CSV usa códigos de participante
+          y excluye nombres y correos. Conserva estos datos para el propósito académico autorizado.
+        </p>
+      </section>`
+  );
+}
+
+function adminRows(query) {
+  return (
+    state.admin.profiles
+      .filter((p) =>
+        [p.nombres, p.apellido_paterno, p.correo]
+          .join(' ')
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+      )
+      .map((p) => {
+        const es = state.admin.evaluations.filter((e) => e.usuario_id === p.id);
+        return /* HTML */ `<tr>
+          <td>
+            ${escape([p.nombres, p.apellido_paterno].filter(Boolean).join(' ') || 'Sin nombre')}
+          </td>
+          <td>${escape(p.correo)}</td>
+          <td>
+            <span class="role-pill ${p.rol === 'admin' ? 'is-admin' : ''}"
+              >${roleLabel(p.rol)}</span
+            >
+          </td>
+          <td>${es.length}</td>
+          <td>${badge(es[0]?.nivel)}</td>
+          <td>
+            <button class="text-button" data-action="admin-detail" data-id="${escape(p.id)}">
+              Ver actividad ↗
+            </button>
+          </td>
+        </tr>`;
+      })
+      .join('') || '<tr><td colspan="6">No hay usuarios que coincidan.</td></tr>'
+  );
+}
+
+// Navegación por hash y actualización del contenido visible.
+function navigate() {
+  if (!state.session) return;
+  const desired = location.hash.slice(1);
+  if (state.evaluationSaving && desired !== 'evaluacion') {
+    location.hash = 'evaluacion';
+    toast('Espera a que termine el guardado de tu evaluación.');
+    return;
+  }
+  let view = Object.hasOwn(titles, desired) ? desired : 'inicio';
+  if (!state.profile) view = 'perfil';
+  if (view === 'admin' && state.profile?.rol !== 'admin') view = 'inicio';
+  if (state.view === 'calma' && view !== 'calma') stopBreathing();
+  state.view = view;
+  render();
+  if (view === 'admin' && !state.admin) loadAdmin();
+}
+
+function render() {
+  if (!state.session) return;
+  if (state.view === 'admin' && state.profile && state.profile.rol !== 'admin') {
+    state.view = 'inicio';
+    state.admin = null;
+  }
+  $('authScreen').hidden = true;
+  $('appScreen').hidden = false;
+  $('userName').textContent = name();
+  $('userAvatar').textContent = name()
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  $('adminNav').hidden = state.profile?.rol !== 'admin';
+  $('accountRole').textContent = roleLabel(state.profile?.rol);
+  $('breadcrumb').textContent = 'Mi espacio / ' + titles[state.view];
+  document.title = `${titles[state.view]} · Calma Vial`;
+  document.querySelectorAll('[data-view]').forEach((a) => {
+    a.classList.toggle('active', a.dataset.view === state.view);
+    a.toggleAttribute('aria-current', a.dataset.view === state.view);
+    if (a.dataset.view === state.view) a.setAttribute('aria-current', 'page');
+  });
+  if (state.loading && !state.lastSync) {
+    $('page').innerHTML =
+      '<div class="loading-state"><div class="spinner"></div>Conectando con tu cuenta…</div>';
+    return;
+  }
+  if (state.error) {
+    $('page').innerHTML =
+      heading('No pudimos cargar tu espacio', 'Tus datos siguen guardados en tu cuenta.') +
+      /* HTML */ `<div class="feedback" role="alert">${escape(state.error)}</div>
+        <button class="button" data-action="retry">Volver a intentar ↻</button>`;
+    return;
+  }
+  $('page').innerHTML = {
+    inicio: dashboard,
+    historial: history,
+    diario: journal,
+    evaluacion: evaluation,
+    calma: calm,
+    perfil: profile,
+    admin,
+  }[state.view]();
+  paintBars();
+}
+
+// Cargar perfil y registros sin aplicar resultados de una sesión anterior.
+async function loadData({ quiet = false } = {}) {
+  if (!state.session || state.loading) return false;
+  const revision = state.revision,
+    userId = state.session.user.id;
+  state.loading = true;
+  state.error = null;
+  $('syncState').textContent = 'Actualizando…';
+  try {
+    const p = await api.profile(userId);
+    if (revision !== state.revision) return false;
+    state.profile = p;
+    if (p) {
+      const [evaluations, diary] = await Promise.all([api.evaluations(userId), api.diary(userId)]);
+      if (revision !== state.revision) return false;
+      state.evaluations = evaluations || [];
+      state.diary = diary || [];
+    } else {
+      state.evaluations = [];
+      state.diary = [];
+      state.admin = null;
+    }
+    state.lastSync = Date.now();
+    $('syncState').textContent = 'Datos actualizados';
+    $('syncState').classList.remove('error-state');
+    return true;
+  } catch (e) {
+    if (revision !== state.revision) return false;
+    if (!quiet) state.error = errorText(e);
+    $('syncState').textContent = 'No se pudo sincronizar';
+    $('syncState').classList.add('error-state');
+    if (quiet) toast(errorText(e), true);
+    return false;
+  } finally {
+    if (revision === state.revision) {
+      state.loading = false;
+      if (!quiet) navigate();
+    }
+  }
+}
+
+async function loadAdmin() {
+  const revision = state.revision;
+  try {
+    const result = await api.admin();
+    if (revision !== state.revision) return;
+    state.admin = result;
+    if (state.view === 'admin') render();
+  } catch (e) {
+    if (revision !== state.revision) return;
+    state.admin = null;
+    state.error = errorText(e);
+    render();
+  }
+}
+
+// Limpiar datos y formularios al entrar, salir o cambiar de usuario.
+async function receiveSession(session) {
+  const sameUser = state.session?.user.id === session?.user.id;
+  if (sameUser && session) {
+    state.session = session;
+    return;
+  }
+  state.revision++;
+  if (syncChannel) {
+    db.removeChannel?.(syncChannel);
+    syncChannel = null;
+  }
+  state.session = session;
+  state.profile = null;
+  state.evaluations = [];
+  state.diary = [];
+  state.admin = null;
+  state.lastSync = 0;
+  state.historySearch = '';
+  state.adminSearch = '';
+  state.historyFilter = '';
+  state.diaryFilter = '';
+  state.loading = false;
+  state.error = null;
+  state.evalStep = -1;
+  state.evalRequestId = null;
+  state.evaluationSaving = false;
+  state.answers = Array(14).fill(null);
+  stopBreathing();
+  closeModal();
+  $('authPass').value = '';
+  $('authConfirmPass').value = '';
+  if (!session) {
+    $('authScreen').hidden = false;
+    $('appScreen').hidden = true;
+    document.title = 'Calma Vial · Tu espacio para conducir en calma';
+    return;
+  }
+  render();
+  await loadData();
+  subscribeToChanges();
+}
+
+// Realtime complementa el refresco periódico. Android ve los cambios al volver a consultar.
+function subscribeToChanges() {
+  if (!state.session || !db.channel) return;
+  const uid = state.session.user.id;
+  const evaluationFilter = state.profile?.rol === 'admin' ? {} : { filter: `usuario_id=eq.${uid}` };
+  const onChange = () => {
+    state.lastSync = 0;
+    if (
+      !document.hidden &&
+      !$('modal').open &&
+      !state.loading &&
+      !state.breathing &&
+      !['perfil', 'evaluacion'].includes(state.view)
+    ) {
+      loadData({ quiet: true }).then(() => {
+        if (!state.session) return;
+        if (state.view === 'admin' && state.profile?.rol === 'admin') {
+          state.admin = null;
+          loadAdmin();
+        } else render();
+      });
+    }
+  };
+  syncChannel = db
+    .channel(`calmavial:${uid}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'perfiles', filter: `id=eq.${uid}` },
+      onChange,
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'evaluaciones', ...evaluationFilter },
+      onChange,
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'diario', filter: `usuario_id=eq.${uid}` },
+      onChange,
+    )
+    .subscribe();
+}
+
+function authMode(mode) {
+  state.authMode = mode;
+  const signup = mode === 'signup';
+  $('loginTab').setAttribute('aria-selected', String(!signup));
+  $('signupTab').setAttribute('aria-selected', String(signup));
+  $('authTitle').innerHTML = signup ? 'Tu camino<br>empieza aquí.' : 'Qué bueno verte<br>de nuevo.';
+  $('authIntro').textContent = signup
+    ? 'Crea tu cuenta de Calma Vial. También podrás usarla para entrar en la app móvil.'
+    : 'Tu historia continúa aquí. Entra con la misma cuenta que usas en tu app móvil.';
+  $('authSubmit').innerHTML = signup
+    ? 'Crear mi cuenta <span>↗</span>'
+    : 'Entrar a mi espacio <span>↗</span>';
+  $('authPass').autocomplete = signup ? 'new-password' : 'current-password';
+  $('consentWrap').hidden = !signup;
+  $('confirmPassWrap').hidden = !signup;
+  $('authConfirmPass').required = signup;
+  $('authConfirmPass').disabled = !signup;
+  $('authPass').minLength = signup ? 8 : 6;
+  $('consent').required = signup;
+  $('forgotBtn').hidden = signup;
+  feedback('authFeedback', '');
+}
+
+function downloadCSV(filename, rows) {
+  const url = URL.createObjectURL(new Blob([csv(rows)], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function recovery() {
+  openModal(
+    'Elige tu nueva contraseña',
+    /* HTML */ `<form id="recoveryForm">
+      <label for="newPassword">Nueva contraseña</label
+      ><input
+        id="newPassword"
+        name="password"
+        type="password"
+        minlength="8"
+        autocomplete="new-password"
+        required
+      /><label for="confirmPassword">Repite la contraseña</label
+      ><input
+        id="confirmPassword"
+        name="confirmPassword"
+        type="password"
+        minlength="8"
+        autocomplete="new-password"
+        required
+      />
+      <div id="recoveryFeedback" class="feedback" hidden role="alert"></div>
+      <button class="button full" type="submit">Guardar nueva contraseña</button>
+    </form>`,
+  );
+}
+
+// Eventos de acceso y acciones de los formularios.
+$('loginTab').addEventListener('click', () => authMode('login'));
+$('signupTab').addEventListener('click', () => authMode('signup'));
+$('showPass').addEventListener('click', () => {
+  const show = $('authPass').type === 'password';
+  $('authPass').type = show ? 'text' : 'password';
+  $('showPass').textContent = show ? 'Ocultar' : 'Ver';
+  $('showPass').setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+});
+$('authForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  feedback('authFeedback', '');
+  await busy($('authSubmit'), async () => {
+    try {
+      const email = $('authEmail').value.trim(),
+        password = $('authPass').value;
+      if (state.authMode === 'signup') {
+        if (!$('consent').checked)
+          throw new Error('Acepta el uso orientativo y la política de privacidad para continuar.');
+        if (password.length < 8)
+          throw new Error('Utiliza al menos 8 caracteres para tu contraseña.');
+        if (password !== $('authConfirmPass').value)
+          throw new Error('Las contraseñas deben coincidir.');
+      }
+      const result =
+        state.authMode === 'signup'
+          ? await db.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo: appRedirectUrl(location),
+                data: {
+                  consentimiento_orientativo: true,
+                  consentimiento_fecha: new Date().toISOString(),
+                },
+              },
+            })
+          : await db.auth.signInWithPassword({ email, password });
+      const data = unwrap(result);
+      if (data.session) await receiveSession(data.session);
+      else
+        feedback(
+          'authFeedback',
+          'Revisa tu correo para confirmar tu cuenta y luego inicia sesión.',
+          true,
+        );
+    } catch (e) {
+      feedback('authFeedback', errorText(e));
+    }
+  });
+});
+$('forgotBtn').addEventListener('click', () => {
+  openModal(
+    'Recupera tu acceso',
+    /* HTML */ `<p>Te enviaremos un enlace para recuperar tu cuenta de Calma Vial.</p>
+      <form id="forgotForm">
+        <label for="recoveryEmail">Correo electrónico</label
+        ><input
+          type="email"
+          name="email"
+          id="recoveryEmail"
+          autocomplete="email"
+          value="${escape($('authEmail').value)}"
+          required
+        />
+        <div class="feedback" id="forgotFeedback" hidden role="alert"></div>
+        <button class="button full" type="submit">Enviar enlace de recuperación ↗</button>
+      </form>`,
+  );
+});
+$('logoutBtn').addEventListener('click', () =>
+  busy($('logoutBtn'), async () => {
+    try {
+      unwrap(await db.auth.signOut({ scope: 'local' }));
+      await receiveSession(null);
+      toast('Cerraste tu sesión en este dispositivo.');
+    } catch (e) {
+      toast(errorText(e), true);
+    }
+  }),
+);
+$('refreshBtn').addEventListener('click', () => {
+  if (state.view === 'calma' && state.breathing) {
+    toast('Termina tu pausa antes de actualizar.');
+    return;
+  }
+  if (['perfil', 'evaluacion'].includes(state.view)) {
+    loadData({ quiet: true });
+    return;
+  }
+  state.admin = null;
+  loadData();
+});
+$('modalClose').addEventListener('click', closeModal);
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'historyFilter') {
+    state.historyFilter = e.target.value;
+    render();
+  }
+  if (e.target.id === 'diaryFilter') {
+    state.diaryFilter = e.target.value;
+    render();
+  }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'adminSearch') {
+    state.adminSearch = e.target.value;
+    $('adminRows').innerHTML = adminRows(e.target.value);
+  }
+  if (e.target.id === 'historySearch') {
+    const value = e.target.value,
+      position = e.target.selectionStart;
+    state.historySearch = value;
+    render();
+    $('historySearch').focus();
+    $('historySearch').setSelectionRange?.(position, position);
+  }
+});
+document.addEventListener('submit', async (event) => {
+  const form = event.target;
+  if (
+    !['diaryForm', 'profileForm', 'evalContextForm', 'forgotForm', 'recoveryForm'].includes(form.id)
+  )
+    return;
+  event.preventDefault();
+  const fields = Object.fromEntries(new FormData(form));
+  const formRevision = state.revision;
+  const button = form.querySelector('[type=submit]');
+  if (form.id === 'evalContextForm') {
+    if (state.evaluationSaving) return;
+    state.context = fields;
+    state.evalRequestId = crypto.randomUUID();
+    state.evalStep = 0;
+    state.answers = Array(14).fill(null);
+    render();
+    return;
+  }
+  await busy(button, async () => {
+    try {
+      if (form.id === 'diaryForm') {
+        feedback('diaryFeedback', '');
+        await api.saveDiary(state.session.user.id, fields, form.dataset.id || undefined);
+        if (formRevision !== state.revision) return;
+        closeModal();
+        await loadData();
+        toast('Tu registro se guardó en la misma cuenta de tu app.');
+      }
+      if (form.id === 'profileForm') {
+        feedback('profileFeedback', '');
+        const profile = await api.saveProfile(state.session.user, fields, Boolean(state.profile));
+        if (formRevision !== state.revision) return;
+        state.profile = profile;
+        await loadData({ quiet: true });
+        if (formRevision !== state.revision) return;
+        location.hash = 'inicio';
+        navigate();
+        toast('Tu perfil está actualizado.');
+      }
+      if (form.id === 'forgotForm') {
+        feedback('forgotFeedback', '');
+        unwrap(
+          await db.auth.resetPasswordForEmail(fields.email.trim(), {
+            redirectTo: appRedirectUrl(location),
+          }),
+        );
+        feedback(
+          'forgotFeedback',
+          'Si el correo está registrado, recibirás un enlace para recuperar tu acceso.',
+          true,
+        );
+      }
+      if (form.id === 'recoveryForm') {
+        feedback('recoveryFeedback', '');
+        if (fields.password !== fields.confirmPassword)
+          throw new Error('Las contraseñas deben coincidir.');
+        unwrap(await db.auth.updateUser({ password: fields.password }));
+        closeModal();
+        toast('Tu contraseña está actualizada para la web y la app.');
+      }
+    } catch (e) {
+      if (formRevision !== state.revision) return;
+      const feedbackIds = {
+        diaryForm: 'diaryFeedback',
+        profileForm: 'profileFeedback',
+        forgotForm: 'forgotFeedback',
+        recoveryForm: 'recoveryFeedback',
+      };
+      feedback(feedbackIds[form.id], errorText(e));
+    }
+  });
+});
+
+// Delegar los clics permite volver a renderizar las vistas sin duplicar listeners.
+document.addEventListener('click', async (event) => {
+  const target = event.target.closest('[data-action]');
+  if (!target || target.disabled) return;
+  const action = target.dataset.action,
+    id = target.dataset.id,
+    actionRevision = state.revision;
+  try {
+    if (action === 'privacy') {
+      openModal(
+        'Privacidad y uso',
+        /* HTML */ `<p>
+            Calma Vial es una herramienta educativa de autoobservación. Sus resultados son
+            orientativos y no sustituyen una evaluación profesional.
+          </p>
+          <p>
+            La web utiliza el mismo servicio de autenticación y base de datos Supabase que la app
+            Android. Tu perfil, tus respuestas y tu diario se guardan en esa cuenta. Tu contraseña
+            se envía por HTTPS al servicio de autenticación.
+          </p>
+          <p>
+            Los administradores autorizados del proyecto pueden consultar registros según los
+            permisos de la base de datos. Usa la opción de cerrar sesión cuando termines en un
+            equipo compartido.
+          </p>
+          <p>
+            Realiza las evaluaciones y los ejercicios únicamente antes o después de conducir, en un
+            lugar seguro.
+          </p>`,
+      );
+      return;
+    }
+    if (action === 'close-modal') {
+      closeModal();
+      return;
+    }
+    if (!state.session) return;
+    if (
+      state.evaluationSaving &&
+      ['answer', 'eval-prev', 'eval-jump', 'eval-next'].includes(action)
+    )
+      return;
+    if (action === 'copy-result') {
+      const ev = state.evaluations.find((e) => String(e.id) === id);
+      if (!ev) return;
+      const text = `Calma Vial · ${date(ev.creado_en)}\nDAS: ${ev.total}/70 · Promedio: ${number(ev.prom_general)}/5 · Nivel orientativo: ${ev.nivel}\nResultado educativo, sin valor diagnóstico.`;
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        toast('Resumen copiado. Compártelo solo con quien tú decidas.');
+      } else
+        openModal(
+          'Tu resumen',
+          `<label for="resultText">Selecciona y copia este texto</label><textarea id="resultText" readonly>${escape(text)}</textarea>`,
+        );
+      return;
+    }
+    if (action === 'admin-detail' && state.profile?.rol === 'admin' && state.admin) {
+      const p = state.admin.profiles.find((p) => String(p.id) === id);
+      if (!p) return;
+      const rows = state.admin.evaluations.filter((e) => e.usuario_id === p.id);
+      const summary = adminSummary(rows);
+      openModal(
+        'Actividad de la cuenta',
+        `<div class="profile-summary"><span class="avatar">${escape(p.nombres?.slice(0, 2) || 'CV')}</span><div><h3>${escape(p.nombres)} ${escape(p.apellido_paterno)}</h3><p>${roleLabel(p.rol)} · ${rows.length} evaluaciones</p></div></div>${rows.length ? bars(summary.factors) + `<div class="table-wrap"><table class="activity-table"><thead><tr><th>Fecha</th><th>Total</th><th>Promedio</th><th>Nivel orientativo</th></tr></thead><tbody>${rows.map((e) => `<tr><td>${date(e.creado_en)}</td><td>${Number(e.total)}/70</td><td>${number(e.prom_general)}/5</td><td>${badge(e.nivel)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="subtle">Esta cuenta aún no tiene evaluaciones.</p>'}${resultNote()}`,
+      );
+      return;
+    }
+    if (action === 'delete-evaluation') {
+      const ev = state.evaluations.find((e) => String(e.id) === id);
+      if (!ev) return;
+      openModal(
+        '¿Eliminar esta evaluación?',
+        `<p>La evaluación del <strong>${date(ev.creado_en)}</strong> (${Number(ev.total)}/70) se eliminará de tu cuenta compartida. Dejará de aparecer en la web y en Android al actualizar. Esta acción no se puede deshacer.</p><div id="deleteEvaluationFeedback" class="feedback" role="alert" hidden></div><div class="form-actions"><button class="button ghost" data-action="close-modal">Conservar evaluación</button><button class="button danger" data-action="confirm-delete-evaluation" data-id="${escape(id)}">Sí, eliminar evaluación</button></div>`,
+      );
+      return;
+    }
+    if (action === 'confirm-delete-evaluation') {
+      await busy(target, async () => {
+        try {
+          await api.deleteEvaluation(state.session.user.id, id);
+          if (actionRevision !== state.revision) return;
+          closeModal();
+          await loadData();
+          toast('Evaluación eliminada de tu cuenta.');
+        } catch (error) {
+          feedback('deleteEvaluationFeedback', errorText(error));
+        }
+      });
+      return;
+    }
+    if (action === 'retry') {
+      await loadData();
+      return;
+    }
+    if (action === 'new-diary') {
+      diaryModal();
+      return;
+    }
+    if (action === 'edit-diary') {
+      const row = state.diary.find((r) => String(r.id) === id);
+      if (row) diaryModal(row);
+      return;
+    }
+    if (action === 'delete-diary') {
+      const row = state.diary.find((r) => String(r.id) === id);
+      if (!row) return;
+      openModal(
+        '¿Eliminar este registro?',
+        /* HTML */ `<p>
+            Se eliminará de tu cuenta y dejará de aparecer en la web y la app móvil. Esta acción no
+            se puede deshacer.
+          </p>
+          <p><strong>${escape(row.situacion)}</strong></p>
+          <div class="feedback" id="deleteFeedback" role="alert" hidden></div>
+          <div class="form-actions">
+            <button class="button ghost" data-action="close-modal">Conservar registro</button
+            ><button
+              class="button danger"
+              data-action="confirm-delete-diary"
+              data-id="${escape(id)}"
+            >
+              Sí, eliminar
+            </button>
+          </div>`,
+      );
+      return;
+    }
+    if (action === 'confirm-delete-diary') {
+      await busy(target, async () => {
+        try {
+          await api.deleteDiary(state.session.user.id, id);
+          if (actionRevision !== state.revision) return;
+          closeModal();
+          await loadData();
+          toast('Registro eliminado de tu cuenta.');
+        } catch (e) {
+          feedback('deleteFeedback', errorText(e));
+        }
+      });
+      return;
+    }
+    if (action === 'result') {
+      const ev = state.evaluations.find((e) => String(e.id) === id);
+      if (ev) resultModal(ev);
+      return;
+    }
+    if (action === 'result-calm') {
+      closeModal();
+      location.hash = 'calma';
+      return;
+    }
+    if (action === 'export-results') {
+      if (!state.evaluations.length) {
+        toast('Completa una evaluación para exportar tus resultados.');
+        return;
+      }
+      downloadCSV('calma-vial-mis-resultados.csv', [
+        [
+          'Fecha',
+          'Total',
+          'Promedio general',
+          'Avance impedido',
+          'Conducción temeraria',
+          'Hostilidad directa',
+          'Nivel orientativo',
+          'Momento',
+          'Vehículo',
+        ],
+        ...state.evaluations.map((e) => [
+          e.creado_en,
+          e.total,
+          e.prom_general,
+          e.prom_avance,
+          e.prom_temeraria,
+          e.prom_hostilidad,
+          e.nivel,
+          e.momento,
+          e.vehiculo,
+        ]),
+      ]);
+      return;
+    }
+    if (action === 'export-admin' && state.profile?.rol === 'admin' && state.admin) {
+      const ids = [...new Set(state.admin.evaluations.map((e) => e.usuario_id))];
+      downloadCSV('calma-vial-resumen-seudonimizado.csv', [
+        [
+          'Participante',
+          'Mes',
+          'Total',
+          'Promedio',
+          'Avance impedido',
+          'Conducción temeraria',
+          'Hostilidad directa',
+          'Nivel orientativo',
+        ],
+        ...state.admin.evaluations.map((e) => [
+          'P' + String(ids.indexOf(e.usuario_id) + 1).padStart(3, '0'),
+          String(e.creado_en).slice(0, 7),
+          e.total,
+          e.prom_general,
+          e.prom_avance,
+          e.prom_temeraria,
+          e.prom_hostilidad,
+          e.nivel,
+        ]),
+      ]);
+      return;
+    }
+    if (action === 'answer') {
+      state.answers[state.evalStep] = Number(target.dataset.value);
+      render();
+      document
+        .querySelector(`[data-action="answer"][data-value="${target.dataset.value}"]`)
+        ?.focus();
+      return;
+    }
+    if (action === 'eval-prev') {
+      state.evalStep--;
+      render();
+      return;
+    }
+    if (action === 'eval-jump') {
+      state.evalStep = Number(target.dataset.value);
+      render();
+      return;
+    }
+    if (action === 'eval-next') {
+      if (state.evalStep < 13) {
+        state.evalStep++;
+        render();
+        return;
+      }
+      await busy(target, async () => {
+        try {
+          state.evaluationSaving = true;
+          const result = calculate(state.answers);
+          state.evalRequestId ||= crypto.randomUUID();
+          const saved = await api.saveEvaluation(
+            state.session.user.id,
+            {
+              ...result,
+              ...state.context,
+            },
+            state.evalRequestId,
+          );
+          if (actionRevision !== state.revision) return;
+          state.evaluationSaving = false;
+          state.evaluations = [saved, ...state.evaluations.filter((e) => e.id !== saved.id)];
+          state.evalStep = -1;
+          state.evalRequestId = null;
+          state.answers = Array(14).fill(null);
+          await loadData({ quiet: true });
+          if (actionRevision !== state.revision) return;
+          location.hash = 'historial';
+          navigate();
+          resultModal(saved);
+          toast('Evaluación guardada en tu cuenta.');
+        } catch (e) {
+          if (actionRevision !== state.revision) return;
+          feedback('evalFeedback', errorText(e));
+        } finally {
+          if (actionRevision === state.revision) state.evaluationSaving = false;
+        }
+      });
+      return;
+    }
+    if (action === 'pattern') {
+      stopBreathing();
+      state.pattern = target.dataset.value;
+      render();
+      return;
+    }
+    if (action === 'breath-toggle') {
+      startBreathing();
+      return;
+    }
+    if (action === 'breath-reset') {
+      stopBreathing();
+      render();
+      return;
+    }
+  } catch (e) {
+    toast(errorText(e), true);
+  }
+});
+window.addEventListener('hashchange', navigate);
+window.addEventListener('offline', () => {
+  if (state.session) {
+    $('syncState').textContent = 'Sin conexión';
+    $('syncState').classList.add('error-state');
+  }
+});
+window.addEventListener('online', () => {
+  if (state.session) loadData({ quiet: true });
+});
+
+// No reemplazar formularios ni interrumpir el ejercicio mientras el usuario los usa.
+async function autoRefresh() {
+  if (
+    !state.session ||
+    document.hidden ||
+    $('modal').open ||
+    state.loading ||
+    state.breathing ||
+    ['evaluacion', 'perfil'].includes(state.view) ||
+    Date.now() - state.lastSync < 40000
+  )
+    return;
+  await loadData({ quiet: true });
+  if (state.view === 'admin' && state.profile?.rol === 'admin') await loadAdmin();
+  if (!state.error && state.session) render();
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) autoRefresh();
+});
+setInterval(autoRefresh, 45000);
+window.addEventListener('beforeunload', (event) => {
+  if (state.evalStep >= 0 && state.answers.some(Boolean)) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
+
+// Diferir las consultas evita ejecutar llamadas a Supabase dentro del bloqueo de Auth.
+db.auth.onAuthStateChange((event, session) => {
+  setTimeout(async () => {
+    if (event === 'PASSWORD_RECOVERY') {
+      await receiveSession(session);
+      recovery();
+    } else await receiveSession(session);
+  }, 0);
+});
+$('today').textContent = new Date().toLocaleDateString('es-BO', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'America/La_Paz',
+});
+try {
+  const data = unwrap(await db.auth.getSession());
+  await receiveSession(data.session);
+} catch (e) {
+  feedback('authFeedback', errorText(e));
+}
+$('authSubmit').disabled = false;
+$('startupStatus').hidden = true;
