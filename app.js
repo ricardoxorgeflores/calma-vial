@@ -10,6 +10,8 @@ import {
   recommendations,
   adminSummary,
   appRedirectUrl,
+  validateEmail,
+  validatePassword,
   calculate,
   csv,
 } from './domain.js';
@@ -583,7 +585,7 @@ ${escape(row?.situacion || '')}</textarea>
       ><textarea
         name="nota"
         id="note"
-        maxlength="3000"
+        maxlength="2000"
         placeholder="¿Qué te gustaría recordar la próxima vez?"
       >
 ${escape(row?.nota || '')}</textarea>
@@ -1310,15 +1312,13 @@ $('authForm').addEventListener('submit', async (event) => {
   feedback('authFeedback', '');
   await busy($('authSubmit'), async () => {
     try {
-      const email = $('authEmail').value.trim().toLowerCase(),
+      const email = validateEmail($('authEmail').value),
         password = $('authPass').value;
+      if (!password) throw new Error('Escribe tu contraseña.');
       if (state.authMode === 'signup') {
         if (!$('consent').checked)
           throw new Error('Acepta el uso orientativo y la política de privacidad para continuar.');
-        if (password.length < 8)
-          throw new Error('Utiliza al menos 8 caracteres para tu contraseña.');
-        if (password !== $('authConfirmPass').value)
-          throw new Error('Las contraseñas deben coincidir.');
+        validatePassword(password, $('authConfirmPass').value);
       }
       const result =
         state.authMode === 'signup'
@@ -1464,7 +1464,7 @@ document.addEventListener('submit', async (event) => {
       if (form.id === 'forgotForm') {
         feedback('forgotFeedback', '');
         unwrap(
-          await db.auth.resetPasswordForEmail(fields.email.trim(), {
+          await db.auth.resetPasswordForEmail(validateEmail(fields.email), {
             redirectTo: appRedirectUrl(location),
           }),
         );
@@ -1476,8 +1476,7 @@ document.addEventListener('submit', async (event) => {
       }
       if (form.id === 'recoveryForm') {
         feedback('recoveryFeedback', '');
-        if (fields.password !== fields.confirmPassword)
-          throw new Error('Las contraseñas deben coincidir.');
+        validatePassword(fields.password, fields.confirmPassword);
         unwrap(await db.auth.updateUser({ password: fields.password }));
         closeModal();
         toast('Tu contraseña está actualizada para la web y la app.');

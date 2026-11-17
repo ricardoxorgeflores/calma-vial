@@ -47,6 +47,24 @@ export function normalizeFactor(value) {
 }
 export const roleLabel = (role) => (role === 'admin' ? 'Administrador' : 'Estudiante');
 
+export function validateEmail(value) {
+  const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    throw new Error('Escribe un correo electrónico válido.');
+  return email;
+}
+
+export function validatePassword(password, confirmation) {
+  if (typeof password !== 'string' || password.length < 8)
+    throw new Error('Utiliza al menos 8 caracteres para tu contraseña.');
+  if (password !== confirmation) throw new Error('Las contraseñas deben coincidir.');
+}
+
+function integerInput(value) {
+  if (typeof value === 'number') return Number.isInteger(value) ? value : NaN;
+  return typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN;
+}
+
 export function appRedirectUrl({ origin, pathname }) {
   const directory = pathname.endsWith('/')
     ? pathname
@@ -60,7 +78,7 @@ export function evaluationPayload(data) {
   const result = calculate(data.respuestas);
   if (!MOMENTS.includes(data.momento)) throw new Error('Selecciona el momento de evaluación.');
   if (!VEHICLES.includes(data.vehiculo)) throw new Error('Selecciona el tipo de vehículo.');
-  const mood = Number(data.animo);
+  const mood = integerInput(data.animo);
   if (!Number.isInteger(mood) || mood < 1 || mood > 5)
     throw new Error('Selecciona cómo te sientes antes de empezar.');
   return { ...result, momento: data.momento, vehiculo: data.vehiculo, animo: mood };
@@ -122,7 +140,7 @@ export function calculate(answers) {
   if (
     !Array.isArray(answers) ||
     answers.length !== 14 ||
-    !answers.every((n) => Number.isInteger(n) && n >= 1 && n <= 5)
+    !Array.from(answers).every((n) => Number.isInteger(n) && n >= 1 && n <= 5)
   )
     throw new Error('Responde las 14 situaciones con un valor de 1 a 5.');
   const total = answers.reduce((a, b) => a + b, 0),
@@ -145,6 +163,11 @@ export function calculate(answers) {
 // Validaciones compatibles con las restricciones de los registros móviles.
 export function validateProfile(p) {
   if (!p.nombres?.trim()) throw new Error('Escribe tus nombres.');
+  for (const key of ['nombres', 'apellido_paterno', 'apellido_materno'])
+    if (p[key]?.trim() && (!/\p{L}/u.test(p[key]) || /[<>\u0000-\u001f]/u.test(p[key])))
+      throw new Error(
+        'Escribe nombres y apellidos válidos, sin etiquetas ni caracteres de control.',
+      );
   if (p.usuario != null && !/^[\p{L}\p{N}_.-]{3,50}$/u.test(p.usuario.trim()))
     throw new Error(
       'El usuario debe tener de 3 a 50 letras, números, puntos, guiones o guiones bajos.',
@@ -160,9 +183,17 @@ export function validateProfile(p) {
   }))
     if (p[key] != null && String(p[key]).length > max)
       throw new Error(`El campo ${key.replaceAll('_', ' ')} admite hasta ${max} caracteres.`);
-  if (p.telefono?.trim() && !/^[+\d()\s-]{6,30}$/.test(p.telefono.trim()))
+  if (
+    p.telefono?.trim() &&
+    (!/^[+\d()\s-]{6,30}$/.test(p.telefono.trim()) ||
+      !/^\d{6,15}$/.test(p.telefono.replace(/\D/g, '')))
+  )
     throw new Error('Escribe un teléfono válido o deja el campo vacío.');
-  if (!Number.isInteger(Number(p.edad)) || Number(p.edad) < 18 || Number(p.edad) > 99)
+  if (
+    !Number.isInteger(integerInput(p.edad)) ||
+    integerInput(p.edad) < 18 ||
+    integerInput(p.edad) > 99
+  )
     throw new Error('La edad debe estar entre 18 y 99 años.');
 }
 
@@ -174,9 +205,9 @@ export function validateDiary(p) {
   if (!Object.hasOwn(DIARY_FACTORS, normalizeFactor(p.factor)))
     throw new Error('Elige el factor que describe la situación.');
   if (
-    !Number.isInteger(Number(p.intensidad)) ||
-    Number(p.intensidad) < 1 ||
-    Number(p.intensidad) > 5
+    !Number.isInteger(integerInput(p.intensidad)) ||
+    integerInput(p.intensidad) < 1 ||
+    integerInput(p.intensidad) > 5
   )
     throw new Error('Elige una intensidad de 1 a 5.');
 }
