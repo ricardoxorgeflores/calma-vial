@@ -794,7 +794,16 @@ function calm() {
 
 function stopBreathing() {
   clearInterval(breathTimer);
+  breathTimer = null;
   state.breathing = false;
+  if ($('breathOrb')) {
+    $('breathOrb').style.transitionDuration = '0s';
+    $('breathOrb').style.transform = 'scale(1)';
+    $('breathPhase').textContent = 'A tu ritmo';
+    $('breathCount').textContent = 'Ejercicio detenido';
+    $('breathToggle').textContent = 'Comenzar de nuevo ↗';
+    $('breathCycles').textContent = 'Pulsa comenzar cuando quieras retomar el ejercicio.';
+  }
 }
 
 function startBreathing() {
@@ -811,26 +820,30 @@ function startBreathing() {
   let last = performance.now();
   $('breathToggle').textContent = 'Detener';
   function paint() {
+    if (!$('breathOrb') || state.view !== 'calma') {
+      stopBreathing();
+      return;
+    }
     const [label, seconds] = phases[phase];
     $('breathPhase').textContent = label;
     $('breathCount').textContent = Math.max(1, Math.ceil(seconds - elapsed)) + ' segundos';
     $('breathOrb').style.transitionDuration = seconds + 's';
     $('breathOrb').style.transform =
-      label === 'Inhala' ? 'scale(1.13)' : label === 'Exhala' ? 'scale(.9)' : 'scale(1)';
+      label === 'Inhala' || label === 'Retén' ? 'scale(1.13)' : 'scale(.9)';
     $('breathCycles').textContent =
       `${cycles} ${cycles === 1 ? 'ciclo completado' : 'ciclos completados'} · Sigue el ritmo de la esfera.`;
   }
   paint();
   breathTimer = setInterval(() => {
-    if (!document.hasFocus() || document.hidden) {
-      last = performance.now();
+    if (document.hidden) {
+      stopBreathing();
       return;
     }
     const now = performance.now();
     elapsed += (now - last) / 1000;
     last = now;
-    if (elapsed >= phases[phase][1]) {
-      elapsed = 0;
+    while (elapsed >= phases[phase][1]) {
+      elapsed -= phases[phase][1];
       phase = (phase + 1) % phases.length;
       if (phase === 0) cycles++;
     }
@@ -1066,6 +1079,8 @@ function render() {
         <button class="button" data-action="retry">Volver a intentar ↻</button>`;
     return;
   }
+  // Conservar el ejercicio en curso ante actualizaciones de la misma vista.
+  if (state.view === 'calma' && state.breathing && $('breathOrb')) return;
   $('page').innerHTML = {
     inicio: dashboard,
     historial: history,
@@ -1789,6 +1804,7 @@ async function autoRefresh() {
   if (!state.error && state.session) render();
 }
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state.breathing) stopBreathing();
   if (!document.hidden) autoRefresh();
 });
 setInterval(autoRefresh, 45000);
