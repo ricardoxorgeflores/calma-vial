@@ -38,6 +38,7 @@ const state = {
   error: null,
   revision: 0,
   lastSync: 0,
+  lastWrite: null,
   evalStep: -1,
   evalRequestId: null,
   evaluationSaving: false,
@@ -117,6 +118,45 @@ function toast(message, error = false) {
   $('toast').classList.toggle('error', error);
   $('toast').hidden = false;
   toastTimer = setTimeout(() => ($('toast').hidden = true), 6500);
+}
+
+function confirmWrite(table, id, operation = 'Guardado') {
+  state.lastWrite = { table, id, operation, at: Date.now() };
+}
+
+function dataStatus() {
+  if (!state.session) return;
+  const time = (value) => new Date(value).toLocaleString('es-BO', { timeZone: 'America/La_Paz' });
+  const write = state.lastWrite;
+  const labels = { perfiles: 'Perfil', evaluaciones: 'Evaluación', diario: 'Diario' };
+  openModal(
+    'Estado de mis datos',
+    /* HTML */ `
+      <p>Los datos de tu cuenta se guardan en Supabase y se consultan desde la web y Android.</p>
+      <dl class="data-status-list">
+        <dt>Última lectura completada</dt>
+        <dd>
+          ${state.lastSync ? escape(time(state.lastSync)) : 'Aún no completada en esta sesión'}
+        </dd>
+        <dt>Evaluaciones de mi cuenta</dt>
+        <dd>${state.evaluations.length}</dd>
+        <dt>Entradas de mi diario</dt>
+        <dd>${state.diary.length}</dd>
+        <dt>Última escritura confirmada en esta sesión</dt>
+        <dd>
+          ${write ? `${escape(labels[write.table])} · ${escape(write.operation)} · ${escape(time(write.at))}<br>Referencia: <code>${escape(write.id)}</code>` : 'Todavía no has guardado ni eliminado registros en esta sesión.'}
+        </dd>
+      </dl>
+      <p class="subtle">
+        Una escritura se confirma cuando el servidor responde. Una lectura posterior fallida no
+        anula un guardado confirmado. Si se pierde la respuesta, revisa el historial antes de
+        repetir el registro.
+      </p>
+      ${state.profile?.rol === 'admin' ? `<h3>Almacenamiento y seguridad</h3><dl class="data-status-list"><dt>Cuentas y contraseñas</dt><dd><code>auth.users</code>. La columna <code>encrypted_password</code> contiene un hash administrado por Supabase Auth. La web no puede leerlo.</dd><dt>Perfiles y permisos</dt><dd><code>public.perfiles</code>: rol <code>usuario</code> o <code>admin</code>.</dd><dt>Evaluaciones y diario</dt><dd><code>public.evaluaciones</code> y <code>public.diario</code>, vinculados a la cuenta por <code>usuario_id</code> y protegidos por RLS.</dd></dl>` : ''}
+      <p>Tu contraseña no se guarda en el perfil, las evaluaciones ni el diario.</p>
+      <button class="button" data-action="close-modal">Entendido</button>
+    `,
+  );
 }
 
 // Evita envíos duplicados y restaura el botón aunque falle la operación.
@@ -1126,6 +1166,8 @@ async function loadData({ quiet = false } = {}) {
     }
     state.lastSync = Date.now();
     $('syncState').textContent = 'Datos actualizados';
+    $('syncState').title =
+      `Última lectura: ${new Date(state.lastSync).toLocaleString('es-BO', { timeZone: 'America/La_Paz' })}`;
     $('syncState').classList.remove('error-state');
     return true;
   } catch (e) {
@@ -1176,6 +1218,7 @@ async function receiveSession(session) {
   state.diary = [];
   state.admin = null;
   state.lastSync = 0;
+  state.lastWrite = null;
   state.historySearch = '';
   state.adminSearch = '';
   state.historyFilter = '';
@@ -1342,8 +1385,12 @@ for (const id of ['authEmail', 'authPass']) {
   $(id).addEventListener('input', () => checkAccessField($(id)));
   $(id).addEventListener('blur', () => checkAccessField($(id)));
 }
-$('loginTab').addEventListener('click', () => authMode('login'));
-$('signupTab').addEventListener('click', () => authMode('signup'));
+$('loginTab').addEventListener('click', () => {
+  if (!authPending) authMode('login');
+});
+$('signupTab').addEventListener('click', () => {
+  if (!authPending) authMode('signup');
+});
 $('showPass').addEventListener('click', () => {
   const show = $('authPass').type === 'password';
   $('authPass').type = show ? 'text' : 'password';
@@ -1511,6 +1558,7 @@ document.addEventListener('submit', async (event) => {
           form.dataset.id || undefined,
         );
         if (formRevision !== state.revision) return;
+        confirmWrite('diario', saved.id, form.dataset.id ? 'Actualizado' : 'Creado');
         state.diary = [saved, ...state.diary.filter((entry) => entry.id !== saved.id)];
         closeModal();
         render();
@@ -1522,11 +1570,11 @@ document.addEventListener('submit', async (event) => {
         const profile = await api.saveProfile(state.session.user, fields, Boolean(state.profile));
         if (formRevision !== state.revision) return;
         state.profile = profile;
-        await loadData({ quiet: true });
-        if (formRevision !== state.revision) return;
+        confirmWrite('perfiles', profile.id, 'Actualizado');
         location.hash = 'inicio';
         navigate();
         toast('Tu perfil está actualizado.');
+        void loadData({ quiet: true });
       }
       if (form.id === 'forgotForm') {
         feedback('forgotFeedback', '');
@@ -1569,6 +1617,10 @@ document.addEventListener('click', async (event) => {
     id = target.dataset.id,
     actionRevision = state.revision;
   try {
+    if (action === 'data-status') {
+      dataStatus();
+      return;
+    }
     if (action === 'login-role') {
       if (authPending || state.authMode !== 'login') return;
       if (!['usuario', 'admin'].includes(target.dataset.value)) return;
@@ -1656,9 +1708,13 @@ document.addEventListener('click', async (event) => {
         try {
           await api.deleteEvaluation(state.session.user.id, id);
           if (actionRevision !== state.revision) return;
+          confirmWrite('evaluaciones', id, 'Eliminado');
+          state.evaluations = state.evaluations.filter((row) => String(row.id) !== String(id));
+          state.admin = null;
           closeModal();
-          await loadData();
+          render();
           toast('Evaluación eliminada de tu cuenta.');
+          void loadData({ quiet: true });
         } catch (error) {
           feedback('deleteEvaluationFeedback', errorText(error));
         }
@@ -1707,9 +1763,12 @@ document.addEventListener('click', async (event) => {
         try {
           await api.deleteDiary(state.session.user.id, id);
           if (actionRevision !== state.revision) return;
+          confirmWrite('diario', id, 'Eliminado');
+          state.diary = state.diary.filter((row) => String(row.id) !== String(id));
           closeModal();
-          await loadData();
+          render();
           toast('Registro eliminado de tu cuenta.');
+          void loadData({ quiet: true });
         } catch (e) {
           feedback('deleteFeedback', errorText(e));
         }
@@ -1822,6 +1881,7 @@ document.addEventListener('click', async (event) => {
           );
           if (actionRevision !== state.revision) return;
           state.evaluationSaving = false;
+          confirmWrite('evaluaciones', saved.id, 'Guardado');
           state.evaluations = [saved, ...state.evaluations.filter((e) => e.id !== saved.id)];
           state.evalStep = -1;
           state.evalRequestId = null;

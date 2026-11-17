@@ -2215,6 +2215,18 @@ dialog::backdrop {
   gap: 10px;
   margin: 20px 0 24px;
 }
+.data-status-list {
+  display: grid;
+  gap: 8px;
+}
+.data-status-list dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+.data-status-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .access-roles button {
   border: 1px solid var(--line);
   background: var(--bg);
