@@ -18,8 +18,62 @@ export function fetchWithDeadline(input, options = {}, timeoutMs = 20000, fetche
   return fetcher(input, { ...options, signal });
 }
 
+// Mantener la exclusión entre pestañas, pero no esperar indefinidamente un bloqueo ajeno.
+export async function authLock(
+  name,
+  acquireTimeout,
+  action,
+  manager = globalThis.navigator?.locks,
+  maxWaitMs = 10000,
+) {
+  if (!manager) return action();
+  const controller = new AbortController();
+  let acquired = false;
+  const timer =
+    acquireTimeout === 0
+      ? null
+      : setTimeout(
+          () => controller.abort(),
+          acquireTimeout > 0 ? Math.min(acquireTimeout, maxWaitMs) : maxWaitMs,
+        );
+  try {
+    return await manager.request(
+      name,
+      acquireTimeout === 0
+        ? { mode: 'exclusive', ifAvailable: true }
+        : { mode: 'exclusive', signal: controller.signal },
+      async (lock) => {
+        clearTimeout(timer);
+        if (!lock) {
+          const error = new Error('La sesión está ocupada en otra pestaña.');
+          error.isAcquireTimeout = true;
+          throw error;
+        }
+        acquired = true;
+        return action();
+      },
+    );
+  } catch (error) {
+    if (!acquired && controller.signal.aborted) {
+      const timeout = new Error(
+        'La sesión está ocupada en otra pestaña de Calma Vial. Cierra las otras pestañas y vuelve a iniciar sesión.',
+      );
+      timeout.isAcquireTimeout = true;
+      throw timeout;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export const db = window.supabase.createClient(config.supabaseUrl, config.supabaseKey, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    lock: authLock,
+  },
   global: { fetch: fetchWithDeadline },
 });
 

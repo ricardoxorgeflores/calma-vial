@@ -1188,8 +1188,10 @@ async function receiveSession(session) {
     return;
   }
   render();
+  const revision = state.revision;
   await loadData();
-  subscribeToChanges();
+  if (revision === state.revision && state.session?.user.id === session.user.id)
+    subscribeToChanges();
 }
 
 // Realtime complementa el refresco periódico. Android ve los cambios al volver a consultar.
@@ -1308,7 +1310,7 @@ $('authForm').addEventListener('submit', async (event) => {
   feedback('authFeedback', '');
   await busy($('authSubmit'), async () => {
     try {
-      const email = $('authEmail').value.trim(),
+      const email = $('authEmail').value.trim().toLowerCase(),
         password = $('authPass').value;
       if (state.authMode === 'signup') {
         if (!$('consent').checked)
@@ -1334,12 +1336,13 @@ $('authForm').addEventListener('submit', async (event) => {
           : await db.auth.signInWithPassword({ email, password });
       const data = unwrap(result);
       if (data.session) await receiveSession(data.session);
-      else
+      else if (state.authMode === 'signup')
         feedback(
           'authFeedback',
           'Revisa tu correo para confirmar tu cuenta y luego inicia sesión.',
           true,
         );
+      else throw new Error('No se pudo iniciar la sesión. Vuelve a intentarlo.');
     } catch (e) {
       feedback('authFeedback', errorText(e));
     }
