@@ -80,6 +80,8 @@ const firstName = () => state.profile?.nombres?.split(' ')[0] || 'bienvenido';
 // Traduce errores técnicos a mensajes que puede entender el usuario.
 function errorText(e) {
   const msg = String(e?.message || e || 'Error inesperado');
+  if (/timeout|timed out|abort|exceeded.*time/i.test(msg))
+    return 'El servidor tardó demasiado en responder. Comprueba tu conexión. Si estabas guardando un registro, revisa el historial antes de repetirlo.';
   if (/invalid login credentials/i.test(msg))
     return 'El correo o la contraseña no coinciden. Usa tu cuenta de la app móvil.';
   if (/email not confirmed/i.test(msg)) return 'Confirma tu correo antes de iniciar sesión.';
@@ -1418,11 +1420,17 @@ document.addEventListener('submit', async (event) => {
     try {
       if (form.id === 'diaryForm') {
         feedback('diaryFeedback', '');
-        await api.saveDiary(state.session.user.id, fields, form.dataset.id || undefined);
+        const saved = await api.saveDiary(
+          state.session.user.id,
+          fields,
+          form.dataset.id || undefined,
+        );
         if (formRevision !== state.revision) return;
+        state.diary = [saved, ...state.diary.filter((entry) => entry.id !== saved.id)];
         closeModal();
-        await loadData();
+        render();
         toast('Tu registro se guardó en la misma cuenta de tu app.');
+        void loadData({ quiet: true });
       }
       if (form.id === 'profileForm') {
         feedback('profileFeedback', '');
@@ -1720,12 +1728,11 @@ document.addEventListener('click', async (event) => {
           state.evalStep = -1;
           state.evalRequestId = null;
           state.answers = Array(14).fill(null);
-          await loadData({ quiet: true });
-          if (actionRevision !== state.revision) return;
           location.hash = 'historial';
           navigate();
           resultModal(saved);
           toast('Evaluación guardada en tu cuenta.');
+          void loadData({ quiet: true });
         } catch (e) {
           if (actionRevision !== state.revision) return;
           feedback('evalFeedback', errorText(e));

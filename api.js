@@ -10,8 +10,17 @@ if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 
 // Cliente público: nunca incluir una clave administrativa en el navegador.
+// El plazo también cancela la lectura del cuerpo, no solo la espera de cabeceras.
+export function fetchWithDeadline(input, options = {}, timeoutMs = 20000, fetcher = fetch) {
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const originalSignal = options.signal || (input instanceof Request ? input.signal : null);
+  const signal = originalSignal ? AbortSignal.any([originalSignal, deadline]) : deadline;
+  return fetcher(input, { ...options, signal });
+}
+
 export const db = window.supabase.createClient(config.supabaseUrl, config.supabaseKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  global: { fetch: fetchWithDeadline },
 });
 
 export function unwrap(result) {
@@ -109,7 +118,7 @@ export const api = {
       reaccion: String(p.reaccion || '').trim(),
       nota: String(p.nota || '').trim(),
     };
-    return unwrap(
+    const saved = unwrap(
       id
         ? await db
             .from('diario')
@@ -124,6 +133,7 @@ export const api = {
             .select()
             .single(),
     );
+    return { ...saved, factor: normalizeFactor(saved.factor) };
   },
   async deleteDiary(userId, id) {
     const rows = unwrap(
