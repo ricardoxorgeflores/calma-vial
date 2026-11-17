@@ -2215,7 +2215,7 @@ dialog::backdrop {
   gap: 10px;
   margin: 20px 0 24px;
 }
-.access-roles span {
+.access-roles button {
   border: 1px solid var(--line);
   background: var(--bg);
   border-radius: 999px;
@@ -2226,6 +2226,20 @@ dialog::backdrop {
 }
 #confirmPassWrap {
   margin-bottom: 22px;
+}
+.access-roles button {
+  cursor: pointer;
+}
+.access-roles button[aria-pressed='true'] {
+  background: var(--indigo);
+  color: white;
+}
+.access-roles button:focus-visible {
+  outline: 3px solid var(--mint);
+  outline-offset: 3px;
+}
+input[aria-invalid='true'] {
+  border-color: #b42318;
 }
 .platform-metrics {
   display: grid;

@@ -91,7 +91,17 @@
             Tu historia continúa aquí. Entra con la misma cuenta que usas en tu app móvil.
           </p>
           <div class="access-roles" aria-label="Perfiles de la plataforma">
-            <span>◉ Estudiantes</span><span>▦ Administradores</span>
+            <button
+              type="button"
+              data-action="login-role"
+              data-value="usuario"
+              aria-pressed="false"
+            >
+              ◉ Estudiante
+            </button>
+            <button type="button" data-action="login-role" data-value="admin" aria-pressed="false">
+              ▦ Administrador
+            </button>
           </div>
           <div class="auth-tabs" role="tablist" aria-label="Acceso">
             <button id="loginTab" role="tab" aria-selected="true">Iniciar sesión</button
@@ -99,6 +109,9 @@
           </div>
           <p id="startupStatus" class="subtle" role="status">Preparando el acceso seguro…</p>
           <form id="authForm" method="post">
+            <p class="subtle" id="loginRoleHint">
+              El rol se verifica con los permisos de tu cuenta.
+            </p>
             <label for="authEmail">Correo electrónico</label
             ><input
               id="authEmail"
@@ -108,7 +121,9 @@
               autocomplete="email"
               required
               maxlength="254"
+              aria-describedby="authEmailValidation"
             />
+            <div id="authEmailValidation" class="feedback" role="alert" hidden></div>
             <div class="label-row">
               <label for="authPass">Contraseña</label
               ><button class="text-button" type="button" id="forgotBtn">¿La olvidaste?</button>
@@ -122,8 +137,13 @@
                 autocomplete="current-password"
                 minlength="6"
                 required
+                aria-describedby="authPasswordHint authPasswordValidation"
               /><button type="button" id="showPass" aria-label="Mostrar contraseña">Ver</button>
             </div>
+            <p class="subtle" id="authPasswordHint">
+              Contraseña: mínimo 6 caracteres para iniciar sesión.
+            </p>
+            <div id="authPasswordValidation" class="feedback" role="alert" hidden></div>
             <div id="confirmPassWrap" hidden>
               <label for="authConfirmPass">Confirmar contraseña</label>
               <input

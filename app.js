@@ -61,6 +61,8 @@ const titles = {
 };
 let breathTimer, toastTimer, syncChannel, modalTrigger;
 let signingOut = false;
+let authPending = false,
+  loginRole = null;
 
 function date(value, short = false) {
   const d = new Date(value);
@@ -1269,6 +1271,13 @@ function authMode(mode) {
   $('authConfirmPass').required = signup;
   $('authConfirmPass').disabled = !signup;
   $('authPass').minLength = signup ? 8 : 6;
+  $('authPasswordHint').textContent = signup
+    ? 'Contraseña nueva: mínimo 8 caracteres y confirmación coincidente.'
+    : 'Contraseña: mínimo 6 caracteres para iniciar sesión.';
+  document.querySelectorAll('[data-action="login-role"]').forEach((button) => {
+    button.disabled = signup;
+  });
+  checkAccessField($('authPass'));
   $('consent').required = signup;
   $('forgotBtn').hidden = signup;
   feedback('authFeedback', '');
@@ -1311,6 +1320,28 @@ function recovery() {
 }
 
 // Eventos de acceso y acciones de los formularios.
+function checkAccessField(input) {
+  let message = '';
+  if (input.value) {
+    try {
+      if (input.id === 'authEmail') validateEmail(input.value);
+      else {
+        const minimum = state.authMode === 'signup' ? 8 : 6;
+        if (input.value.length < minimum)
+          throw new Error(`La contraseña debe tener al menos ${minimum} caracteres.`);
+      }
+    } catch (error) {
+      message = error.message;
+    }
+  }
+  input.setAttribute('aria-invalid', String(Boolean(message)));
+  input.setCustomValidity?.(message);
+  feedback(input.id === 'authEmail' ? 'authEmailValidation' : 'authPasswordValidation', message);
+}
+for (const id of ['authEmail', 'authPass']) {
+  $(id).addEventListener('input', () => checkAccessField($(id)));
+  $(id).addEventListener('blur', () => checkAccessField($(id)));
+}
 $('loginTab').addEventListener('click', () => authMode('login'));
 $('signupTab').addEventListener('click', () => authMode('signup'));
 $('showPass').addEventListener('click', () => {
@@ -1323,10 +1354,16 @@ $('authForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   feedback('authFeedback', '');
   await busy($('authSubmit'), async () => {
+    authPending = true;
+    let unacceptedSession = null;
     try {
       const email = validateEmail($('authEmail').value),
         password = $('authPass').value;
       if (!password) throw new Error('Escribe tu contraseña.');
+      if (password.length < (state.authMode === 'signup' ? 8 : 6))
+        throw new Error(
+          `La contraseña debe tener al menos ${state.authMode === 'signup' ? 8 : 6} caracteres.`,
+        );
       if (state.authMode === 'signup') {
         if (!$('consent').checked)
           throw new Error('Acepta el uso orientativo y la política de privacidad para continuar.');
@@ -1348,8 +1385,15 @@ $('authForm').addEventListener('submit', async (event) => {
           : await db.auth.signInWithPassword({ email, password });
       const data = unwrap(result);
       if (data.session) {
+        unacceptedSession = data.session;
+        if (state.authMode === 'login' && loginRole) {
+          const profile = await api.profile(data.session.user.id);
+          if ((profile?.rol || 'usuario') !== loginRole)
+            throw new Error('Esta cuenta no tiene el rol seleccionado. Elige el acceso correcto.');
+        }
         if (location.hash === '#iniciar-sesion') location.hash = 'inicio';
         await receiveSession(data.session);
+        unacceptedSession = null;
       } else if (state.authMode === 'signup')
         feedback(
           'authFeedback',
@@ -1358,7 +1402,10 @@ $('authForm').addEventListener('submit', async (event) => {
         );
       else throw new Error('No se pudo iniciar la sesión. Vuelve a intentarlo.');
     } catch (e) {
+      if (unacceptedSession) await signOutAndShowLogin();
       feedback('authFeedback', errorText(e));
+    } finally {
+      authPending = false;
     }
   });
 });
@@ -1522,6 +1569,20 @@ document.addEventListener('click', async (event) => {
     id = target.dataset.id,
     actionRevision = state.revision;
   try {
+    if (action === 'login-role') {
+      if (authPending || state.authMode !== 'login') return;
+      if (!['usuario', 'admin'].includes(target.dataset.value)) return;
+      loginRole = target.dataset.value;
+      document
+        .querySelectorAll('[data-action="login-role"]')
+        .forEach((button) =>
+          button.setAttribute('aria-pressed', String(button.dataset.value === loginRole)),
+        );
+      $('loginRoleHint').textContent =
+        `Acceso de ${roleLabel(loginRole).toLowerCase()}. La cuenta debe tener este rol autorizado.`;
+      feedback('authFeedback', '');
+      return;
+    }
     if (action === 'privacy') {
       openModal(
         'Privacidad y uso',
@@ -1841,6 +1902,7 @@ window.addEventListener('beforeunload', (event) => {
 db.auth.onAuthStateChange((event, session) => {
   const revision = state.revision;
   setTimeout(async () => {
+    if (authPending && session) return;
     if (revision !== state.revision || (signingOut && session)) return;
     if (event === 'PASSWORD_RECOVERY') {
       await receiveSession(session);
