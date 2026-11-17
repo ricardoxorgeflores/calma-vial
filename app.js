@@ -60,6 +60,7 @@ const titles = {
   admin: 'Administración',
 };
 let breathTimer, toastTimer, syncChannel, modalTrigger;
+let signingOut = false;
 
 function date(value, short = false) {
   const d = new Date(value);
@@ -1029,6 +1030,10 @@ function adminRows(query) {
 
 // Navegación por hash y actualización del contenido visible.
 function navigate() {
+  if (location.hash === '#iniciar-sesion') {
+    if (state.session) void signOutAndShowLogin();
+    return;
+  }
   if (!state.session) return;
   const desired = location.hash.slice(1);
   if (state.evaluationSaving && desired !== 'evaluacion') {
@@ -1342,8 +1347,10 @@ $('authForm').addEventListener('submit', async (event) => {
             })
           : await db.auth.signInWithPassword({ email, password });
       const data = unwrap(result);
-      if (data.session) await receiveSession(data.session);
-      else if (state.authMode === 'signup')
+      if (data.session) {
+        if (location.hash === '#iniciar-sesion') location.hash = 'inicio';
+        await receiveSession(data.session);
+      } else if (state.authMode === 'signup')
         feedback(
           'authFeedback',
           'Revisa tu correo para confirmar tu cuenta y luego inicia sesión.',
@@ -1374,17 +1381,23 @@ $('forgotBtn').addEventListener('click', () => {
       </form>`,
   );
 });
-$('logoutBtn').addEventListener('click', () =>
-  busy($('logoutBtn'), async () => {
-    try {
-      unwrap(await db.auth.signOut({ scope: 'local' }));
-      await receiveSession(null);
-      toast('Cerraste tu sesión en este dispositivo.');
-    } catch (e) {
-      toast(errorText(e), true);
-    }
-  }),
-);
+async function signOutAndShowLogin() {
+  if (signingOut) return;
+  signingOut = true;
+  try {
+    unwrap(await db.auth.signOut({ scope: 'local' }));
+    await receiveSession(null);
+    authMode('login');
+    location.hash = 'iniciar-sesion';
+    toast('Cerraste tu sesión en este dispositivo.');
+  } catch (e) {
+    if (state.session) toast(errorText(e), true);
+    else feedback('authFeedback', errorText(e));
+  } finally {
+    signingOut = false;
+  }
+}
+$('logoutBtn').addEventListener('click', () => busy($('logoutBtn'), signOutAndShowLogin));
 $('refreshBtn').addEventListener('click', () => {
   if (state.view === 'calma' && state.breathing) {
     toast('Termina tu pausa antes de actualizar.');
@@ -1826,7 +1839,9 @@ window.addEventListener('beforeunload', (event) => {
 
 // Diferir las consultas evita ejecutar llamadas a Supabase dentro del bloqueo de Auth.
 db.auth.onAuthStateChange((event, session) => {
+  const revision = state.revision;
   setTimeout(async () => {
+    if (revision !== state.revision || (signingOut && session)) return;
     if (event === 'PASSWORD_RECOVERY') {
       await receiveSession(session);
       recovery();
@@ -1840,8 +1855,11 @@ $('today').textContent = new Date().toLocaleDateString('es-BO', {
   timeZone: 'America/La_Paz',
 });
 try {
-  const data = unwrap(await db.auth.getSession());
-  await receiveSession(data.session);
+  if (location.hash === '#iniciar-sesion') await signOutAndShowLogin();
+  else {
+    const data = unwrap(await db.auth.getSession());
+    await receiveSession(data.session);
+  }
 } catch (e) {
   feedback('authFeedback', errorText(e));
 }
