@@ -1184,6 +1184,13 @@ async function receiveSession(session) {
   $('authPass').value = '';
   $('authConfirmPass').value = '';
   if (!session) {
+    $('page').replaceChildren();
+    $('modalBody').replaceChildren();
+    $('userName').textContent = '';
+    $('userAvatar').textContent = '';
+    $('accountRole').textContent = '';
+    $('breadcrumb').textContent = '';
+    $('adminNav').hidden = true;
     $('authScreen').hidden = false;
     $('appScreen').hidden = true;
     document.title = 'Calma Vial · Tu espacio para conducir en calma';
