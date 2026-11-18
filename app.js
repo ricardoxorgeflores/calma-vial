@@ -1,4 +1,4 @@
-import { api, db, unwrap } from './api.js';
+import { api, db, unwrap } from './api.js?v=3825242502f7';
 import {
   QUESTIONS,
   LABELS,
@@ -14,7 +14,7 @@ import {
   validatePassword,
   calculate,
   csv,
-} from './domain.js';
+} from './domain.js?v=3825242502f7';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -299,7 +299,7 @@ function dashboard() {
           </p>
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
-        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg" alt="" /></div>
+        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=3825242502f7" alt="" /></div>
       </section>
       <div class="stats-grid">
         <article class="stat-card">

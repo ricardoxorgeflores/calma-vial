@@ -1,11 +1,11 @@
-import { config } from './config.js';
+import { config } from './config.js?v=3825242502f7';
 import {
   validateDiary,
   validateProfile,
   evaluationPayload,
   normalizeFactor,
   DIARY_FACTORS,
-} from './domain.js';
+} from './domain.js?v=3825242502f7';
 if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 
