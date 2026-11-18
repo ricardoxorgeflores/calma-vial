@@ -1,4 +1,4 @@
-import { config } from './config.js?v=5d4f40099bef';
+import { config } from './config.js?v=e945bc30e2c8';
 import {
   validateDiary,
   validateProfile,
@@ -6,7 +6,7 @@ import {
   normalizeFactor,
   DIARY_FACTORS,
   validateNotice,
-} from './domain.js?v=5d4f40099bef';
+} from './domain.js?v=e945bc30e2c8';
 if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 

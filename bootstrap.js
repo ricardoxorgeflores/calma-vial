@@ -1,6 +1,6 @@
 // Mantener deshabilitado el envío si no se pueden cargar el SDK o los módulos.
 try {
-  await import('./app.js?v=5d4f40099bef');
+  await import('./app.js?v=e945bc30e2c8');
 } catch {
   const status = document.getElementById('startupStatus');
   status.textContent =

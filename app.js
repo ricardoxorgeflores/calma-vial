@@ -1,5 +1,5 @@
-import { api, db, unwrap } from './api.js?v=5d4f40099bef';
-import { prepareAvatar } from './avatar.js?v=5d4f40099bef';
+import { api, db, unwrap } from './api.js?v=e945bc30e2c8';
+import { prepareAvatar } from './avatar.js?v=e945bc30e2c8';
 import {
   QUESTIONS,
   LABELS,
@@ -15,7 +15,7 @@ import {
   validatePassword,
   calculate,
   csv,
-} from './domain.js?v=5d4f40099bef';
+} from './domain.js?v=e945bc30e2c8';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -312,7 +312,7 @@ function dashboard() {
           </p>
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
-        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=5d4f40099bef" alt="" /></div>
+        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=e945bc30e2c8" alt="" /></div>
       </section>
       <div class="stats-grid">
         <article class="stat-card">
@@ -2228,6 +2228,7 @@ async function autoRefresh() {
     return;
   await loadData({ quiet: true });
   if (state.view === 'admin' && state.profile?.rol === 'admin') await loadAdmin();
+  if (state.view === 'avisos') await loadNotices();
   if (!state.error && state.session) render();
 }
 document.addEventListener('visibilitychange', () => {
