@@ -13,7 +13,7 @@
   --mint: #2ec4a0;
   --mint-light: #e8f8f1;
   --ink: #25253e;
-  --muted: #73748a;
+  --muted: #626579;
   --line: #e9e9f1;
   --bg: #f6f7fb;
   --surface: #fff;
@@ -2448,6 +2448,78 @@ input[aria-invalid='true'] {
 }
 
 /* 13. Respetar la preferencia de movimiento reducido */
+
+/* Acceso institucional y documentación operativa. */
+.auth-story {
+  background: radial-gradient(ellipse at 10% 0%, #5b5bb9 0, transparent 60%), #292973;
+}
+.auth-main {
+  background: linear-gradient(160deg, #fff 65%, #f4f5fb);
+}
+.auth-content h2 {
+  font-size: clamp(28px, 3vw, 36px);
+  letter-spacing: -1px;
+}
+.password-requirements {
+  list-style: none;
+  padding: 14px 16px;
+  margin: 0 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 12px;
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+}
+.password-requirements li::before {
+  content: '○';
+  display: inline-block;
+  width: 20px;
+}
+.password-requirements li.met {
+  color: #176850;
+}
+.password-requirements li.met::before {
+  content: '✓';
+}
+.architecture-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0;
+  list-style: none;
+}
+.architecture-flow li {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--indigo);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.architecture-flow strong,
+.architecture-flow span {
+  display: block;
+}
+.architecture-flow span {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.demo-steps {
+  padding-left: 24px;
+}
+.demo-steps li {
+  padding: 5px 0 5px 8px;
+}
+code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .architecture-flow {
+    grid-template-columns: 1fr;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

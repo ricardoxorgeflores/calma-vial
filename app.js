@@ -59,6 +59,7 @@ const titles = {
   calma: 'Modo calma',
   perfil: 'Mi perfil',
   admin: 'Administración',
+  sistema: 'Arquitectura y seguridad',
 };
 let breathTimer, toastTimer, syncChannel, modalTrigger;
 let signingOut = false;
@@ -943,6 +944,28 @@ function profile() {
   );
 }
 
+function systemOverview() {
+  if (state.profile?.rol !== 'admin') return dashboard();
+  return (
+    heading(
+      'Arquitectura y seguridad',
+      'Documentación operativa de Calma Vial. Los controles se aplican también en el servidor.',
+      '<a class="button ghost" href="#admin">Volver a administración</a>',
+    ) +
+    `
+    <section class="card">
+      <div class="card-title"><h2>Una cuenta, dos aplicaciones</h2><span class="badge">Web · Android</span></div>
+      <ol class="architecture-flow"><li><strong>Interfaz</strong><span>HTML, CSS y JavaScript · GitHub Pages</span></li><li><strong>Autenticación y API</strong><span>Supabase Auth · HTTPS · sesión de usuario</span></li><li><strong>Persistencia</strong><span>PostgreSQL · claves foráneas · políticas RLS</span></li></ol>
+      <p class="subtle">El SDK envía y recibe JSON. Android consulta el mismo proyecto y las mismas tablas. Realtime y la actualización periódica permiten refrescar la web.</p>
+    </section>
+    <div class="insights-grid">
+      <section class="card"><h2>Identidad y permisos</h2><dl class="data-status-list"><dt>Estudiante</dt><dd>Consulta y administra sus evaluaciones, diario y perfil.</dd><dt>Administrador</dt><dd>Consulta perfiles, indicadores y evaluaciones autorizadas. El diario sigue siendo privado.</dd><dt>Control de acceso</dt><dd>Supabase Auth valida la cuenta. PostgreSQL verifica el propietario y el rol; elegir un botón no concede permisos.</dd><dt>Contraseñas</dt><dd>Supabase Auth almacena hashes bcrypt en <code>auth.users.encrypted_password</code>. La web no lee hashes ni guarda contraseñas en las tablas públicas.</dd></dl></section>
+      <section class="card"><h2>Integridad de los registros</h2><dl class="data-status-list"><dt>Relaciones</dt><dd><code>perfiles.id</code> identifica la cuenta. <code>evaluaciones.usuario_id</code> y <code>diario.usuario_id</code> relacionan sus registros.</dd><dt>Evaluaciones</dt><dd><code>guardar_evaluacion</code> valida 14 respuestas de 1 a 5, calcula el resultado y reconoce solicitudes repetidas mediante su identificador.</dd><dt>Eliminación</dt><dd>Física, con confirmación y control de propietario. El registro eliminado deja de estar disponible en ambas aplicaciones al actualizar.</dd><dt>Guardado</dt><dd>El éxito se muestra después de la respuesta del servidor. Ante un tiempo de espera agotado, consulta el historial antes de repetir.</dd></dl></section>
+    </div>
+    <section class="card"><h2>Comprobación durante la exposición</h2><ol class="demo-steps"><li>Intenta acceder con un correo incorrecto y una contraseña corta.</li><li>Selecciona un rol distinto al de tu cuenta y comprueba el rechazo.</li><li>Guarda una evaluación y abre el historial.</li><li>Crea y edita una reflexión de prueba; revisa la escritura confirmada.</li><li>Comprueba el registro en Supabase y después en Android con tu cuenta.</li><li>Cierra la sesión y verifica que ya no aparecen datos privados.</li></ol><button class="button" data-action="data-status">Consultar estado de mis datos</button><p class="mini-note">Esta pantalla describe la implementación; no certifica pruebas en un teléfono ni sustituye una auditoría de seguridad. Las pruebas y sus límites se documentan en VERIFICACION.md.</p></section>`
+  );
+}
+
 function admin() {
   if (!state.admin)
     return (
@@ -954,7 +977,7 @@ function admin() {
     heading(
       'Administración',
       'Consulta de usuarios y seguimiento de evaluaciones.',
-      '<button class="button ghost" data-action="export-admin">Exportar datos seudonimizados ↓</button>',
+      '<div class="form-actions"><a class="button ghost" href="#sistema">Arquitectura y seguridad</a><button class="button ghost" data-action="export-admin">Exportar datos seudonimizados ↓</button></div>',
     ) +
     /* HTML */ `<div class="platform-metrics">
         <article class="metric-card">
@@ -1085,7 +1108,7 @@ function navigate() {
   }
   let view = Object.hasOwn(titles, desired) ? desired : 'inicio';
   if (!state.profile) view = 'perfil';
-  if (view === 'admin' && state.profile?.rol !== 'admin') view = 'inicio';
+  if (['admin', 'sistema'].includes(view) && state.profile?.rol !== 'admin') view = 'inicio';
   if (state.view === 'calma' && view !== 'calma') stopBreathing();
   state.view = view;
   render();
@@ -1094,7 +1117,7 @@ function navigate() {
 
 function render() {
   if (!state.session) return;
-  if (state.view === 'admin' && state.profile && state.profile.rol !== 'admin') {
+  if (['admin', 'sistema'].includes(state.view) && state.profile && state.profile.rol !== 'admin') {
     state.view = 'inicio';
     state.admin = null;
   }
@@ -1138,6 +1161,7 @@ function render() {
     calma: calm,
     perfil: profile,
     admin,
+    sistema: systemOverview,
   }[state.view]();
   paintBars();
 }
@@ -1301,7 +1325,7 @@ function authMode(mode) {
   const signup = mode === 'signup';
   $('loginTab').setAttribute('aria-selected', String(!signup));
   $('signupTab').setAttribute('aria-selected', String(signup));
-  $('authTitle').innerHTML = signup ? 'Tu camino<br>empieza aquí.' : 'Qué bueno verte<br>de nuevo.';
+  $('authTitle').textContent = signup ? 'Crea tu cuenta' : 'Accede a tu cuenta';
   $('authIntro').textContent = signup
     ? 'Crea tu cuenta de Calma Vial. También podrás usarla para entrar en la app móvil.'
     : 'Tu historia continúa aquí. Entra con la misma cuenta que usas en tu app móvil.';
@@ -1321,6 +1345,7 @@ function authMode(mode) {
     button.disabled = signup;
   });
   checkAccessField($('authPass'));
+  updatePasswordRequirements();
   $('consent').required = signup;
   $('forgotBtn').hidden = signup;
   feedback('authFeedback', '');
@@ -1363,6 +1388,25 @@ function recovery() {
 }
 
 // Eventos de acceso y acciones de los formularios.
+function updatePasswordRequirements() {
+  $('passwordRequirements').hidden = state.authMode !== 'signup';
+  const password = $('authPass').value;
+  const checks = {
+    length: password.length >= 8,
+    upper: /\p{Lu}/u.test(password),
+    lower: /\p{Ll}/u.test(password),
+    digit: /\d/.test(password),
+    special: /[^\p{L}\p{N}\s]/u.test(password),
+    match: Boolean(password) && password === $('authConfirmPass').value,
+  };
+  document.querySelectorAll('#passwordRequirements [data-rule]').forEach((item) => {
+    const met = checks[item.dataset.rule];
+    item.classList.toggle('met', met);
+    item.setAttribute('aria-label', `${item.textContent}: ${met ? 'cumplido' : 'pendiente'}`);
+  });
+}
+$('authConfirmPass').addEventListener('input', updatePasswordRequirements);
+$('authPass').addEventListener('input', updatePasswordRequirements);
 function checkAccessField(input) {
   let message = '';
   if (input.value) {
