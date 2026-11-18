@@ -1,4 +1,5 @@
-import { api, db, unwrap } from './api.js?v=3825242502f7';
+import { api, db, unwrap } from './api.js?v=5d4f40099bef';
+import { prepareAvatar } from './avatar.js?v=5d4f40099bef';
 import {
   QUESTIONS,
   LABELS,
@@ -14,7 +15,7 @@ import {
   validatePassword,
   calculate,
   csv,
-} from './domain.js?v=3825242502f7';
+} from './domain.js?v=5d4f40099bef';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -31,6 +32,11 @@ const state = {
   evaluations: [],
   diary: [],
   admin: null,
+  avatarUrl: null,
+  avatarCheckedAt: 0,
+  notices: null,
+  noticeAudit: [],
+  noticesError: null,
   view: 'inicio',
   authMode: 'login',
   hydrating: false,
@@ -60,9 +66,11 @@ const titles = {
   perfil: 'Mi perfil',
   admin: 'Administración',
   sistema: 'Arquitectura y seguridad',
+  avisos: 'Avisos de la plataforma',
 };
 let breathTimer, toastTimer, syncChannel, modalTrigger;
 let signingOut = false;
+let noticesRequest = 0;
 let authPending = false,
   loginRole = null;
 
@@ -129,7 +137,12 @@ function dataStatus() {
   if (!state.session) return;
   const time = (value) => new Date(value).toLocaleString('es-BO', { timeZone: 'America/La_Paz' });
   const write = state.lastWrite;
-  const labels = { perfiles: 'Perfil', evaluaciones: 'Evaluación', diario: 'Diario' };
+  const labels = {
+    perfiles: 'Perfil',
+    evaluaciones: 'Evaluación',
+    diario: 'Diario',
+    calmavial_avisos: 'Aviso',
+  };
   openModal(
     'Estado de mis datos',
     /* HTML */ `
@@ -299,7 +312,7 @@ function dashboard() {
           </p>
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
-        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=3825242502f7" alt="" /></div>
+        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=5d4f40099bef" alt="" /></div>
       </section>
       <div class="stats-grid">
         <article class="stat-card">
@@ -911,17 +924,42 @@ function profile() {
     heading(
       p.id ? 'Mi perfil' : 'Completa tu perfil',
       p.id
-        ? 'Tu información, compartida con la app móvil.'
+        ? 'Tus datos personales y de contacto, compartidos con la app móvil.'
         : 'Un último paso para empezar tu recorrido.',
     ) +
     /* HTML */ `<section class="card narrow">
       <div class="profile-summary">
-        <span class="avatar">${escape(name().slice(0, 2).toUpperCase())}</span>
+        <span class="avatar" id="profilePhoto">${escape(name().slice(0, 2).toUpperCase())}</span>
         <div>
           <h2>${escape(name())}</h2>
           <p>${escape(state.session.user.email)}</p>
         </div>
       </div>
+      <form id="avatarForm" class="photo-panel">
+        <label for="avatarFile">Foto de perfil de la web</label>
+        <p class="subtle">
+          JPG, PNG o WebP · máximo 2 MB. Se recorta al centro y se guarda de forma privada.
+        </p>
+        <input
+          id="avatarFile"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          required
+          aria-describedby="avatarFeedback"
+        />
+        <div class="form-actions">
+          <button class="button secondary" type="submit">Guardar foto</button
+          ><button
+            class="button ghost"
+            type="button"
+            data-action="remove-avatar"
+            ${!state.avatarUrl ? 'disabled' : ''}
+          >
+            Quitar foto
+          </button>
+        </div>
+        <div id="avatarFeedback" class="feedback" role="alert" hidden></div>
+      </form>
       ${!p.id ? '<div class="notice">Tu cuenta está creada. Completa los datos de tu perfil para guardar evaluaciones y registros.</div>' : ''}
       <form id="profileForm">
         <div class="form-grid">
@@ -941,6 +979,98 @@ function profile() {
       </form>
       <p class="status-detail">${roleLabel(p.rol)} · Los permisos se validan en el servidor.</p>
     </section>`
+  );
+}
+
+function paintAvatar() {
+  const initials = escape(name().slice(0, 2).toUpperCase());
+  let photo = '';
+  if (state.avatarUrl) {
+    try {
+      const url = new URL(state.avatarUrl);
+      if (
+        url.protocol === 'https:' &&
+        url.hostname === 'wezudavlgzyevhlchuww.supabase.co' &&
+        url.pathname.startsWith('/storage/v1/object/sign/calmavial-avatars/')
+      )
+        photo = `<img src="${escape(url.href)}" alt="Foto de perfil" referrerpolicy="no-referrer" />`;
+    } catch {
+      /* Una URL inesperada nunca se inserta en la interfaz. */
+    }
+  }
+  document.querySelectorAll('#userAvatar, #profilePhoto').forEach((element) => {
+    element.innerHTML = photo || initials;
+  });
+  const remove = document.querySelector('[data-action="remove-avatar"]');
+  if (remove) remove.disabled = !photo;
+}
+
+async function loadAvatar() {
+  if (!state.session) return;
+  const revision = state.revision;
+  try {
+    const url = await api.avatar(state.session.user.id);
+    if (revision !== state.revision) return;
+    state.avatarUrl = url;
+    state.avatarCheckedAt = Date.now();
+    paintAvatar();
+  } catch {
+    /* La foto nunca bloquea las evaluaciones ni oculta errores de guardado. */
+  }
+}
+
+async function loadNotices() {
+  if (!state.session) return;
+  const request = ++noticesRequest;
+  const revision = state.revision;
+  const admin = state.profile?.rol === 'admin';
+  try {
+    const rows = await api.notices(admin);
+    const audit = admin ? await api.noticeAudit() : [];
+    if (
+      revision !== state.revision ||
+      request !== noticesRequest ||
+      admin !== (state.profile?.rol === 'admin')
+    )
+      return;
+    state.notices = rows || [];
+    state.noticeAudit = audit || [];
+    state.noticesError = null;
+  } catch (error) {
+    if (revision !== state.revision || request !== noticesRequest) return;
+    state.noticesError = errorText(error);
+  }
+  if (state.view === 'avisos' && !$('modal').open) render();
+}
+
+function notices() {
+  const admin = state.profile?.rol === 'admin';
+  return (
+    heading(
+      'Avisos de la plataforma',
+      'Información publicada por la administración.',
+      admin ? '<button class="button" data-action="new-notice">Publicar aviso ＋</button>' : '',
+    ) +
+    (state.noticesError
+      ? `<div class="feedback" role="alert">${escape(state.noticesError)}</div><button class="button ghost" data-action="refresh-notices">Volver a cargar</button>`
+      : state.notices === null
+        ? '<div class="loading-state">Cargando avisos…</div>'
+        : state.notices
+            .map(
+              (notice) =>
+                `<article class="card notice-card"><div class="card-title"><h2>${escape(notice.titulo)}</h2><span class="badge">${notice.activo ? 'Publicado' : 'Archivado'}</span></div><p class="notice-message">${escape(notice.mensaje)}</p><p class="mini-note">Publicado el ${date(notice.creado_en)}</p>${admin ? `<div class="form-actions"><button class="button ghost" data-action="edit-notice" data-id="${escape(notice.id)}">Editar</button><button class="button ghost" data-action="toggle-notice" data-id="${escape(notice.id)}">${notice.activo ? 'Archivar' : 'Reactivar'}</button></div>` : ''}</article>`,
+            )
+            .join('') || empty('Sin avisos', 'Los avisos de la administración aparecerán aquí.')) +
+    (admin && state.noticeAudit.length
+      ? `<section class="card"><h2>Historial administrativo</h2><p class="subtle">Últimas 30 acciones. El servidor registra quién realizó cada cambio.</p><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Acción</th><th>Cuenta administradora</th></tr></thead><tbody>${state.noticeAudit.map((row) => `<tr><td>${date(row.creado_en)}</td><td>${escape(row.accion)}</td><td>${escape(state.admin?.profiles.find((p) => p.id === row.actor_id)?.correo || row.actor_id)}</td></tr>`).join('')}</tbody></table></div></section>`
+      : '')
+  );
+}
+
+function noticeForm(notice = {}) {
+  openModal(
+    notice.id ? 'Editar aviso' : 'Publicar aviso',
+    `<form id="noticeForm" data-id="${escape(notice.id || '')}"><label for="noticeTitle">Título</label><input id="noticeTitle" name="titulo" value="${escape(notice.titulo || '')}" required minlength="5" maxlength="100" /><label for="noticeMessage">Mensaje</label><textarea id="noticeMessage" name="mensaje" required minlength="10" maxlength="2000">${escape(notice.mensaje || '')}</textarea><p class="mini-note">El aviso publicado será visible para las cuentas de la plataforma. No incluyas datos personales.</p><div id="noticeFeedback" class="feedback" role="alert" hidden></div><div class="form-actions"><button class="button" type="submit">Guardar aviso</button><button class="button ghost" type="button" data-action="close-modal">Cancelar</button></div></form>`,
   );
 }
 
@@ -977,7 +1107,7 @@ function admin() {
     heading(
       'Administración',
       'Consulta de usuarios y seguimiento de evaluaciones.',
-      '<div class="form-actions"><a class="button ghost" href="#sistema">Arquitectura y seguridad</a><button class="button ghost" data-action="export-admin">Exportar datos seudonimizados ↓</button></div>',
+      '<div class="form-actions"><a class="button" href="#avisos">Gestionar avisos</a><a class="button ghost" href="#sistema">Arquitectura y seguridad</a><button class="button ghost" data-action="export-admin">Exportar datos seudonimizados ↓</button></div>',
     ) +
     /* HTML */ `<div class="platform-metrics">
         <article class="metric-card">
@@ -1113,6 +1243,7 @@ function navigate() {
   state.view = view;
   render();
   if (view === 'admin' && !state.admin) loadAdmin();
+  if (view === 'avisos') void loadNotices();
 }
 
 function render() {
@@ -1162,8 +1293,10 @@ function render() {
     perfil: profile,
     admin,
     sistema: systemOverview,
+    avisos: notices,
   }[state.view]();
   paintBars();
+  paintAvatar();
 }
 
 // Cargar perfil y registros sin aplicar resultados de una sesión anterior.
@@ -1177,6 +1310,11 @@ async function loadData({ quiet = false } = {}) {
   try {
     const p = await api.profile(userId);
     if (revision !== state.revision) return false;
+    if (p?.rol !== state.profile?.rol) {
+      state.notices = null;
+      state.noticeAudit = [];
+      state.admin = null;
+    }
     state.profile = p;
     if (p) {
       const [evaluations, diary] = await Promise.all([api.evaluations(userId), api.diary(userId)]);
@@ -1193,6 +1331,7 @@ async function loadData({ quiet = false } = {}) {
     $('syncState').title =
       `Última lectura: ${new Date(state.lastSync).toLocaleString('es-BO', { timeZone: 'America/La_Paz' })}`;
     $('syncState').classList.remove('error-state');
+    if (Date.now() - state.avatarCheckedAt > 30 * 60 * 1000) void loadAvatar();
     return true;
   } catch (e) {
     if (revision !== state.revision) return false;
@@ -1241,6 +1380,11 @@ async function receiveSession(session) {
   state.evaluations = [];
   state.diary = [];
   state.admin = null;
+  state.avatarUrl = null;
+  state.avatarCheckedAt = 0;
+  state.notices = null;
+  state.noticeAudit = [];
+  state.noticesError = null;
   state.lastSync = 0;
   state.lastWrite = null;
   state.historySearch = '';
@@ -1273,6 +1417,7 @@ async function receiveSession(session) {
   render();
   const revision = state.revision;
   await loadData();
+  void loadAvatar();
   if (revision === state.revision && state.session?.user.id === session.user.id)
     subscribeToChanges();
 }
@@ -1577,7 +1722,15 @@ document.addEventListener('input', (e) => {
 document.addEventListener('submit', async (event) => {
   const form = event.target;
   if (
-    !['diaryForm', 'profileForm', 'evalContextForm', 'forgotForm', 'recoveryForm'].includes(form.id)
+    ![
+      'diaryForm',
+      'profileForm',
+      'avatarForm',
+      'noticeForm',
+      'evalContextForm',
+      'forgotForm',
+      'recoveryForm',
+    ].includes(form.id)
   )
     return;
   event.preventDefault();
@@ -1595,6 +1748,33 @@ document.addEventListener('submit', async (event) => {
   }
   await busy(button, async () => {
     try {
+      if (form.id === 'avatarForm') {
+        feedback('avatarFeedback', '');
+        const uid = state.session.user.id;
+        const file = $('avatarFile').files?.[0];
+        const blob = await prepareAvatar(file);
+        if (formRevision !== state.revision) return;
+        await api.saveAvatar(uid, blob);
+        if (formRevision !== state.revision) return;
+        $('avatarFile').value = '';
+        feedback('avatarFeedback', 'Tu foto se guardó en el almacenamiento privado.', true);
+        await loadAvatar();
+      }
+      if (form.id === 'noticeForm') {
+        if (state.profile?.rol !== 'admin')
+          throw new Error('Solo un administrador puede gestionar avisos.');
+        feedback('noticeFeedback', '');
+        const saved = await api.saveNotice(
+          state.session.user.id,
+          fields,
+          form.dataset.id || undefined,
+        );
+        if (formRevision !== state.revision) return;
+        confirmWrite('calmavial_avisos', saved.id, form.dataset.id ? 'Actualizado' : 'Publicado');
+        closeModal();
+        toast('Aviso guardado por el servidor.');
+        await loadNotices();
+      }
       if (form.id === 'diaryForm') {
         feedback('diaryFeedback', '');
         const saved = await api.saveDiary(
@@ -1648,6 +1828,8 @@ document.addEventListener('submit', async (event) => {
         profileForm: 'profileFeedback',
         forgotForm: 'forgotFeedback',
         recoveryForm: 'recoveryFeedback',
+        avatarForm: 'avatarFeedback',
+        noticeForm: 'noticeFeedback',
       };
       feedback(feedbackIds[form.id], errorText(e));
     }
@@ -1658,6 +1840,58 @@ document.addEventListener('submit', async (event) => {
 document.addEventListener('click', async (event) => {
   const target = event.target.closest('[data-action]');
   if (!target || target.disabled) return;
+  if (target.dataset.action === 'refresh-notices') {
+    await loadNotices();
+    return;
+  }
+  if (target.dataset.action === 'new-notice' && state.profile?.rol === 'admin') {
+    noticeForm();
+    return;
+  }
+  if (target.dataset.action === 'edit-notice' && state.profile?.rol === 'admin') {
+    const notice = state.notices?.find((row) => row.id === target.dataset.id);
+    if (notice) noticeForm(notice);
+    return;
+  }
+  if (target.dataset.action === 'toggle-notice' && state.profile?.rol === 'admin') {
+    const notice = state.notices?.find((row) => row.id === target.dataset.id);
+    if (!notice) return;
+    const revision = state.revision;
+    await busy(target, async () => {
+      try {
+        await api.setNoticeActive(notice.id, !notice.activo);
+        if (revision !== state.revision) return;
+        toast(notice.activo ? 'Aviso archivado.' : 'Aviso reactivado.');
+        await loadNotices();
+      } catch (error) {
+        if (revision === state.revision) toast(errorText(error), true);
+      }
+    });
+    return;
+  }
+  if (target.dataset.action === 'remove-avatar' && state.session) {
+    openModal(
+      '¿Quitar tu foto?',
+      '<p>Se quitará tu foto de perfil. Puedes subir otra cuando quieras.</p><div id="avatarDeleteFeedback" class="feedback" role="alert" hidden></div><div class="form-actions"><button class="button ghost" data-action="close-modal">Conservar foto</button><button class="button danger" data-action="confirm-remove-avatar">Sí, quitar foto</button></div>',
+    );
+    return;
+  }
+  if (target.dataset.action === 'confirm-remove-avatar' && state.session) {
+    const revision = state.revision;
+    await busy(target, async () => {
+      try {
+        await api.removeAvatar(state.session.user.id);
+        if (revision !== state.revision) return;
+        state.avatarUrl = null;
+        closeModal();
+        paintAvatar();
+        feedback('avatarFeedback', 'Tu foto se quitó del almacenamiento.', true);
+      } catch (error) {
+        if (revision === state.revision) feedback('avatarDeleteFeedback', errorText(error));
+      }
+    });
+    return;
+  }
   const action = target.dataset.action,
     id = target.dataset.id,
     actionRevision = state.revision;
@@ -1739,7 +1973,8 @@ document.addEventListener('click', async (event) => {
       const summary = adminSummary(rows);
       openModal(
         'Actividad de la cuenta',
-        `<div class="profile-summary"><span class="avatar">${escape(p.nombres?.slice(0, 2) || 'CV')}</span><div><h3>${escape(p.nombres)} ${escape(p.apellido_paterno)}</h3><p>${roleLabel(p.rol)} · ${rows.length} evaluaciones</p></div></div>${rows.length ? bars(summary.factors) + `<div class="table-wrap"><table class="activity-table"><thead><tr><th>Fecha</th><th>Total</th><th>Promedio</th><th>Nivel orientativo</th></tr></thead><tbody>${rows.map((e) => `<tr><td>${date(e.creado_en)}</td><td>${Number(e.total)}/70</td><td>${number(e.prom_general)}/5</td><td>${badge(e.nivel)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="subtle">Esta cuenta aún no tiene evaluaciones.</p>'}${resultNote()}`,
+        `<dl class="data-status-list"><dt>Correo</dt><dd>${escape(p.correo)}</dd><dt>Teléfono</dt><dd>${escape(p.telefono || 'No indicado')}</dd><dt>Usuario</dt><dd>${escape(p.usuario || 'No indicado')}</dd><dt>Registro</dt><dd>${date(p.creado_en)}</dd></dl>` +
+          `<div class="profile-summary"><span class="avatar">${escape(p.nombres?.slice(0, 2) || 'CV')}</span><div><h3>${escape(p.nombres)} ${escape(p.apellido_paterno)}</h3><p>${roleLabel(p.rol)} · ${rows.length} evaluaciones</p></div></div>${rows.length ? bars(summary.factors) + `<div class="table-wrap"><table class="activity-table"><thead><tr><th>Fecha</th><th>Total</th><th>Promedio</th><th>Nivel orientativo</th></tr></thead><tbody>${rows.map((e) => `<tr><td>${date(e.creado_en)}</td><td>${Number(e.total)}/70</td><td>${number(e.prom_general)}/5</td><td>${badge(e.nivel)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="subtle">Esta cuenta aún no tiene evaluaciones.</p>'}${resultNote()}`,
       );
       return;
     }

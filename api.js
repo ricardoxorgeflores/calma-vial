@@ -1,11 +1,12 @@
-import { config } from './config.js?v=3825242502f7';
+import { config } from './config.js?v=5d4f40099bef';
 import {
   validateDiary,
   validateProfile,
   evaluationPayload,
   normalizeFactor,
   DIARY_FACTORS,
-} from './domain.js?v=3825242502f7';
+  validateNotice,
+} from './domain.js?v=5d4f40099bef';
 if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 
@@ -107,6 +108,66 @@ const profileFields = [
 
 // Acceso compartido con Android. Filtrar por propietario complementa las políticas RLS.
 export const api = {
+  async avatar(id) {
+    if (!db.storage) return null;
+    const bucket = db.storage.from('calmavial-avatars');
+    const rows = unwrap(await bucket.list(id, { limit: 1, search: 'profile.jpg' }));
+    if (!rows?.some((item) => item.name === 'profile.jpg')) return null;
+    return unwrap(await bucket.createSignedUrl(`${id}/profile.jpg`, 3600)).signedUrl;
+  },
+  async saveAvatar(id, blob) {
+    if (!id || blob?.type !== 'image/jpeg' || !blob.size || blob.size > 524288)
+      throw new Error('La foto preparada no es válida.');
+    unwrap(
+      await db.storage.from('calmavial-avatars').upload(`${id}/profile.jpg`, blob, {
+        upsert: true,
+        contentType: 'image/jpeg',
+        cacheControl: '0',
+      }),
+    );
+  },
+  async removeAvatar(id) {
+    if (!id) throw new Error('Inicia sesión.');
+    unwrap(await db.storage.from('calmavial-avatars').remove([`${id}/profile.jpg`]));
+  },
+  async notices(admin = false) {
+    let query = db
+      .from('calmavial_avisos')
+      .select('*')
+      .order('creado_en', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(100);
+    if (!admin) query = query.eq('activo', true);
+    return unwrap(await query);
+  },
+  async saveNotice(userId, fields, id) {
+    const values = validateNotice(fields);
+    return unwrap(
+      id
+        ? await db.from('calmavial_avisos').update(values).eq('id', id).select().single()
+        : await db
+            .from('calmavial_avisos')
+            .insert({ ...values, creado_por: userId })
+            .select()
+            .single(),
+    );
+  },
+  async setNoticeActive(id, active) {
+    if (typeof active !== 'boolean') throw new Error('Estado no válido.');
+    return unwrap(
+      await db.from('calmavial_avisos').update({ activo: active }).eq('id', id).select().single(),
+    );
+  },
+  async noticeAudit() {
+    return unwrap(
+      await db
+        .from('calmavial_auditoria')
+        .select('*')
+        .order('creado_en', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(30),
+    );
+  },
   async profile(id) {
     return unwrap(await db.from('perfiles').select('*').eq('id', id).maybeSingle());
   },
@@ -205,7 +266,7 @@ export const api = {
     const profiles = await allRows(() =>
       db
         .from('perfiles')
-        .select('id,nombres,apellido_paterno,correo,rol,creado_en')
+        .select('id,nombres,apellido_paterno,correo,telefono,usuario,rol,creado_en')
         .order('creado_en', { ascending: false })
         .order('id', { ascending: false }),
     );

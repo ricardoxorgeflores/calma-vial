@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'Roboto';
-  src: url('./vendor/fonts/Roboto.ttf?v=3825242502f7') format('truetype');
+  src: url('./vendor/fonts/Roboto.ttf?v=5d4f40099bef') format('truetype');
   font-weight: 100 900;
   font-display: swap;
 }
@@ -2448,6 +2448,30 @@ input[aria-invalid='true'] {
 }
 
 /* 13. Respetar la preferencia de movimiento reducido */
+
+.avatar {
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-panel {
+  padding: 20px;
+  margin-bottom: 28px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.photo-panel .subtle {
+  font-size: 13px;
+}
+.notice-message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 /* Acceso institucional y documentación operativa. */
 .auth-story {

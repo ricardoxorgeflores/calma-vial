@@ -6,7 +6,7 @@
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://wezudavlgzyevhlchuww.supabase.co wss://wezudavlgzyevhlchuww.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob: https://wezudavlgzyevhlchuww.supabase.co; connect-src 'self' https://wezudavlgzyevhlchuww.supabase.co wss://wezudavlgzyevhlchuww.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <meta name="theme-color" content="#3B3B98" />
     <meta
@@ -14,10 +14,10 @@
       content="Tu espacio para conocer tus emociones al conducir. Evaluaciones DAS, diario y modo calma, conectados a tu app Calma Vial."
     />
     <title>Calma Vial · Tu espacio para conducir en calma</title>
-    <link rel="icon" href="./logo.svg?v=3825242502f7" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=3825242502f7" />
-    <script src="./vendor/supabase.js?v=3825242502f7" defer></script>
-    <script type="module" src="./bootstrap.js?v=3825242502f7"></script>
+    <link rel="icon" href="./logo.svg?v=5d4f40099bef" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=5d4f40099bef" />
+    <script src="./vendor/supabase.js?v=5d4f40099bef" defer></script>
+    <script type="module" src="./bootstrap.js?v=5d4f40099bef"></script>
   </head>
   <body>
     <a class="skip" href="#main">Saltar al contenido</a>
@@ -25,7 +25,7 @@
     <div id="authScreen" class="auth-screen">
       <aside class="auth-story">
         <a class="brand light" href="#"
-          ><img src="./logo.svg?v=3825242502f7" alt="" width="48" height="48" /><span
+          ><img src="./logo.svg?v=5d4f40099bef" alt="" width="48" height="48" /><span
             >Calma Vial<small>UN VIAJE MÁS TRANQUILO</small></span
           ></a
         >
@@ -206,7 +206,7 @@
     <div id="appScreen" class="app-shell" hidden>
       <aside class="sidebar">
         <a href="#inicio" class="brand"
-          ><img src="./logo.svg?v=3825242502f7" width="43" height="43" alt="" /><span
+          ><img src="./logo.svg?v=5d4f40099bef" width="43" height="43" alt="" /><span
             >Calma Vial<small>TU ESPACIO PERSONAL</small></span
           ></a
         ><span class="nav-label">MI CAMINO</span>
@@ -216,6 +216,7 @@
           ><a href="#historial" data-view="historial"><span>◷</span> Mis resultados</a
           ><a href="#diario" data-view="diario"><span>▧</span> Mi diario</a
           ><a href="#calma" data-view="calma"><span>❋</span> Modo calma</a
+          ><a href="#avisos" data-view="avisos"><span>▣</span> Avisos</a
           ><a href="#admin" data-view="admin" id="adminNav" hidden><span>▦</span> Administración</a>
         </nav>
         <div class="sidebar-bottom">

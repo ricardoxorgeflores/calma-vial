@@ -47,6 +47,16 @@ export function normalizeFactor(value) {
 }
 export const roleLabel = (role) => (role === 'admin' ? 'Administrador' : 'Estudiante');
 
+export function validateNotice(fields) {
+  const titulo = String(fields.titulo ?? '').trim();
+  const mensaje = String(fields.mensaje ?? '').trim();
+  if (titulo.length < 5 || titulo.length > 100)
+    throw new Error('El título debe tener entre 5 y 100 caracteres.');
+  if (mensaje.length < 10 || mensaje.length > 2000)
+    throw new Error('El mensaje debe tener entre 10 y 2000 caracteres.');
+  return { titulo, mensaje };
+}
+
 export function validateEmail(value) {
   const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
