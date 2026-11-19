@@ -14,122 +14,129 @@
       content="Tu espacio para conocer tus emociones al conducir. Evaluaciones DAS, diario y modo calma, conectados a tu app Calma Vial."
     />
     <title>Calma Vial · Tu espacio para conducir en calma</title>
-    <link rel="icon" href="./logo.svg?v=e4a33fd1fdee" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=e4a33fd1fdee" />
-    <script src="./vendor/supabase.js?v=e4a33fd1fdee" defer></script>
-    <script src="./vendor/jspdf.umd.min.js?v=e4a33fd1fdee" defer></script>
-    <script type="module" src="./bootstrap.js?v=e4a33fd1fdee"></script>
+    <link rel="icon" href="./assets/images/logo.svg?v=9669147ee55a" type="image/svg+xml" />
+    <link rel="stylesheet" href="./css/base.css?v=9669147ee55a" />
+    <link rel="stylesheet" href="./css/auth.css?v=9669147ee55a" />
+    <script src="./js/auth/auth-ui.js?v=9669147ee55a" defer></script>
+    <script src="./vendor/supabase.js?v=9669147ee55a" data-supabase-sdk defer></script>
+    <script type="module" src="./js/bootstrap.js?v=9669147ee55a"></script>
   </head>
   <body>
     <a class="skip" href="#main">Saltar al contenido</a>
     <!-- Acceso: presentación de la marca y formulario de autenticación. -->
-    <div id="authScreen" class="auth-screen">
+    <section id="runtimeNotice" class="runtime-notice" role="status">
+      <img src="./assets/images/logo.svg?v=9669147ee55a" width="52" height="52" alt="Calma Vial" />
+      <h1>Abre Calma Vial desde su servidor</h1>
+      <p>
+        Un archivo <code>file:///</code> no puede ejecutar los módulos de acceso. Abre
+        <strong>Abrir-CalmaVial.cmd</strong> en la carpeta del proyecto o utiliza uno de estos
+        enlaces.
+      </p>
+      <div>
+        <a class="button" href="http://localhost:4174/">Abrir versión local</a
+        ><a class="button ghost" href="https://ricardoxorgeflores.github.io/calma-vial/"
+          >Abrir versión publicada</a
+        >
+      </div>
+    </section>
+    <div id="authScreen" class="auth-screen" hidden>
       <aside class="auth-story">
-        <a class="brand light" href="#"
-          ><img src="./logo.svg?v=e4a33fd1fdee" alt="" width="48" height="48" /><span
-            >Calma Vial<small>UN VIAJE MÁS TRANQUILO</small></span
+        <div class="hero-visual" aria-hidden="true"></div>
+        <a class="brand light" href="#inicio"
+          ><img src="./assets/images/logo.svg?v=9669147ee55a" alt="" width="48" height="48" /><span
+            >Calma Vial<small>BIENESTAR EN CADA RECORRIDO</small></span
           ></a
         >
         <div class="story-copy">
-          <span class="eyebrow mint">TU BIENESTAR TAMBIÉN VA CONTIGO</span>
-          <h1>Bienestar vial.<br />Seguimiento personal.</h1>
-          <p>
-            Evaluaciones, resultados y reflexiones en una plataforma conectada a tu aplicación
-            móvil.
-          </p>
+          <span class="eyebrow mint"><span class="hero-dot"></span> TU BIENESTAR VA CONTIGO</span>
+          <h1>Más calma.<br />Un mejor <em>camino.</em></h1>
+          <p>Conoce tus emociones al volante y construye hábitos para disfrutar cada recorrido.</p>
+          <div class="hero-features">
+            <span><b>01</b> Evalúate</span><span><b>02</b> Reflexiona</span
+            ><span><b>03</b> Avanza</span>
+          </div>
         </div>
-        <!-- Ilustración decorativa; no contiene controles interactivos. -->
-        <div class="road-art" aria-hidden="true">
-          <svg viewBox="0 0 600 280">
-            <defs>
-              <linearGradient id="road" x2="1" y2="1">
-                <stop stop-color="#5b5bbd" />
-                <stop offset="1" stop-color="#45459f" />
-              </linearGradient>
-            </defs>
-            <circle cx="465" cy="68" r="34" fill="#7ee0c3" opacity=".8" />
-            <path d="M0 175Q100 80 215 158T450 145T650 160V280H0" fill="#4848a2" />
-            <path d="M0 224Q150 151 288 201T600 177V280H0" fill="#323287" />
-            <path
-              d="M355 280Q485 216 348 185T325 116Q374 92 346 75"
-              fill="none"
-              stroke="url(#road)"
-              stroke-width="62"
-            />
-            <path
-              d="M355 280Q485 216 348 185T325 116Q374 92 346 75"
-              fill="none"
-              stroke="#c1c1ec"
-              stroke-width="3"
-              stroke-dasharray="10 13"
-            />
-            <path
-              d="M90 164v-45m-18 24 18-33 18 33m-29-15 11-23 12 23"
-              fill="none"
-              stroke="#7ee0c3"
-              stroke-width="5"
-              stroke-linecap="round"
-            />
-            <path
-              d="M490 189v-38m-15 19 15-29 15 29"
-              fill="none"
-              stroke="#7ee0c3"
-              stroke-width="5"
-              stroke-linecap="round"
-            />
-          </svg>
-          <div class="floating-note"><span class="note-dot"></span> Cada pausa cuenta.</div>
+        <div class="hero-caption">
+          <span class="caption-icon" aria-hidden="true">↗</span>
+          <div>
+            <strong>Tu próxima pausa puede cambiar tu día.</strong
+            ><small>Evaluaciones, diario e informes en un mismo lugar.</small>
+          </div>
         </div>
         <div class="story-footer">
-          <span>Hecho para nuestros caminos.</span><span>La Paz, Bolivia ↗</span>
+          <span>Diseñado para avanzar contigo.</span><span>La Paz, Bolivia</span>
         </div>
       </aside>
       <main class="auth-main" id="main">
         <div class="auth-top">
-          <span>PLATAFORMA DE BIENESTAR VIAL</span><span class="online-dot">Una misma cuenta</span>
+          <span>PLATAFORMA DE BIENESTAR VIAL</span><span class="online-dot">Web + app móvil</span>
         </div>
         <div class="auth-content">
-          <span class="section-tag">BIENVENIDO A CALMA VIAL</span>
-          <h2 id="authTitle">Accede a tu cuenta</h2>
+          <span class="section-tag">TU ESPACIO PERSONAL</span>
+          <h2 id="authTitle">Bienvenido de nuevo</h2>
           <p class="subtle" id="authIntro">
-            Tu historia continúa aquí. Entra con la misma cuenta que usas en tu app móvil.
+            Entra a tu espacio y continúa tu recorrido con más calma.
           </p>
-          <div class="access-roles" aria-label="Perfiles de la plataforma">
+          <div class="access-roles" aria-label="Perfil de acceso">
             <button
               type="button"
               data-action="login-role"
               data-value="usuario"
               aria-pressed="false"
             >
-              ◉ Usuario
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="8" r="3.4" />
+                <path d="M5 21v-2a7 7 0 0 1 14 0v2" /></svg
+              ><span>Usuario<small>Mi bienestar</small></span
+              ><i aria-hidden="true">✓</i>
             </button>
             <button type="button" data-action="login-role" data-value="admin" aria-pressed="false">
-              ▦ Administrador
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m12 3 8 3v6c0 5-8 9-8 9S4 17 4 12V6Z" />
+                <path d="m8 12 3 3 5-6" /></svg
+              ><span>Administrador<small>Gestión del sistema</small></span
+              ><i aria-hidden="true">✓</i>
             </button>
           </div>
+          <p id="roleNotice" class="role-notice" role="status" hidden></p>
           <div class="auth-tabs" role="tablist" aria-label="Acceso">
-            <button id="loginTab" role="tab" aria-selected="true">Iniciar sesión</button
-            ><button id="signupTab" role="tab" aria-selected="false">Crear cuenta</button>
+            <button
+              type="button"
+              id="loginTab"
+              role="tab"
+              aria-selected="true"
+              aria-controls="authForm"
+            >
+              Iniciar sesión
+            </button>
+            <button
+              type="button"
+              id="signupTab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="authForm"
+            >
+              Crear cuenta
+            </button>
           </div>
-          <p id="startupStatus" class="subtle" role="status">Preparando el acceso seguro…</p>
-          <form id="authForm" method="post">
-            <p class="subtle" id="loginRoleHint">
-              El rol se verifica con los permisos de tu cuenta.
+          <form id="authForm" method="post" novalidate>
+            <p class="role-hint" id="loginRoleHint">
+              Tu cuenta determina los permisos. Puedes elegir el perfil de acceso.
             </p>
-            <label for="authEmail">Correo electrónico</label
-            ><input
+            <label for="authEmail">Correo electrónico <span aria-hidden="true">*</span></label>
+            <input
               id="authEmail"
               name="email"
               type="email"
-              placeholder="tu@correo.com"
+              placeholder="nombre@correo.com"
               autocomplete="email"
               required
               maxlength="254"
               aria-describedby="authEmailValidation"
             />
-            <div id="authEmailValidation" class="feedback" role="alert" hidden></div>
+            <div id="authEmailValidation" class="feedback field-feedback" role="alert" hidden></div>
             <div class="label-row">
-              <label for="authPass">Contraseña</label
+              <label for="authPass">Contraseña <span aria-hidden="true">*</span></label
               ><button class="text-button" type="button" id="forgotBtn">¿La olvidaste?</button>
             </div>
             <div class="password-field">
@@ -137,69 +144,86 @@
                 id="authPass"
                 name="password"
                 type="password"
-                placeholder="Tu contraseña"
+                placeholder="Escribe tu contraseña"
                 autocomplete="current-password"
                 minlength="6"
                 required
                 aria-describedby="authPasswordHint authPasswordValidation"
               /><button type="button" id="showPass" aria-label="Mostrar contraseña">Ver</button>
             </div>
-            <p class="subtle" id="authPasswordHint">
-              Para entrar, usa tu contraseña actual (mínimo 6 caracteres). Al crear una nueva:
-              mínimo 8, mayúscula, minúscula, número y carácter especial (! @ # $).
+            <p class="password-hint" id="authPasswordHint">
+              Usa tu contraseña actual. Para crear una cuenta: mínimo 8 caracteres, mayúscula,
+              minúscula, número y símbolo (! @ # $).
             </p>
-            <div id="authPasswordValidation" class="feedback" role="alert" hidden></div>
+            <div
+              id="authPasswordValidation"
+              class="feedback field-feedback"
+              role="alert"
+              hidden
+            ></div>
             <ul
               id="passwordRequirements"
               class="password-requirements"
-              aria-label="Requisitos de la nueva contraseña"
+              aria-label="Requisitos para una contraseña nueva"
               hidden
             >
-              <li data-rule="length">Al menos 8 caracteres</li>
-              <li data-rule="upper">Una letra mayúscula</li>
-              <li data-rule="lower">Una letra minúscula</li>
+              <li data-rule="length">De 8 caracteres a 72 bytes</li>
+              <li data-rule="upper">Una mayúscula</li>
+              <li data-rule="lower">Una minúscula</li>
               <li data-rule="digit">Un número</li>
-              <li data-rule="special">Un carácter especial: ! @ # $</li>
-              <li data-rule="match">Las contraseñas coinciden</li>
+              <li data-rule="special">Un símbolo: ! @ # $</li>
+              <li data-rule="match">Confirmación coincidente</li>
             </ul>
             <div id="confirmPassWrap" hidden>
-              <label for="authConfirmPass">Confirmar contraseña</label>
-              <input
+              <label for="authConfirmPass"
+                >Confirmar contraseña <span aria-hidden="true">*</span></label
+              ><input
                 id="authConfirmPass"
                 type="password"
                 autocomplete="new-password"
                 minlength="8"
                 placeholder="Repite tu contraseña"
                 disabled
+                aria-describedby="authConfirmValidation"
               />
+              <div
+                id="authConfirmValidation"
+                class="feedback field-feedback"
+                role="alert"
+                hidden
+              ></div>
             </div>
             <label class="check" id="consentWrap" hidden
               ><input type="checkbox" id="consent" /><span
-                >Tengo al menos 18 años y acepto el uso educativo y orientativo de mis resultados,
-                de acuerdo con la
+                >Tengo al menos 18 años y acepto el uso educativo de mis resultados, según la
                 <button class="text-button" type="button" data-action="privacy">
                   política de privacidad y uso</button
                 >.</span
               ></label
             >
             <div class="feedback" id="authFeedback" role="alert" hidden></div>
+            <p id="authProgress" class="auth-progress" role="status" hidden></p>
+            <p id="startupStatus" class="connection-status" role="status">
+              Conectando el servicio de acceso…
+            </p>
+            <button type="button" id="retryConnection" class="text-button connection-retry" hidden>
+              Reintentar conexión
+            </button>
             <button class="button primary full" id="authSubmit" type="submit" disabled>
-              Entrar a mi espacio <span aria-hidden="true">↗</span>
+              Entrar a mi espacio
             </button>
           </form>
           <div class="same-account">
-            <span class="sync-symbol">⇄</span>
+            <span class="sync-symbol" aria-hidden="true">⇄</span>
             <div>
-              <strong>Tu app y tu web, conectadas.</strong>
-              <p>
-                Consulta tus evaluaciones y tu diario desde cualquier dispositivo con tu cuenta.
-              </p>
+              <strong>Una cuenta. Todo tu recorrido.</strong>
+              <p>Tus evaluaciones y tu diario, conectados a la app móvil.</p>
             </div>
           </div>
         </div>
         <footer class="auth-footer">
           <span>© 2026 Calma Vial</span
-          ><button class="text-button" data-action="privacy">Privacidad y uso</button>
+          ><button type="button" class="text-button" data-action="privacy">Privacidad y uso</button>
         </footer>
       </main>
     </div>
@@ -207,7 +231,7 @@
     <div id="appScreen" class="app-shell" hidden>
       <aside class="sidebar">
         <a href="#inicio" class="brand"
-          ><img src="./logo.svg?v=e4a33fd1fdee" width="43" height="43" alt="" /><span
+          ><img src="./assets/images/logo.svg?v=9669147ee55a" width="43" height="43" alt="" /><span
             >Calma Vial<small>TU ESPACIO PERSONAL</small></span
           ></a
         ><span class="nav-label">MI CAMINO</span>

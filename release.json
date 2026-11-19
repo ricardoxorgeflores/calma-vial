@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "release": "9669147ee55a",
+  "files": [
+    "index.html",
+    "css/base.css",
+    "css/auth.css",
+    "js/bootstrap.js",
+    "js/app.js",
+    "js/auth/auth-ui.js",
+    "js/domain/domain.js",
+    "js/services/api.js",
+    "js/services/dto.js",
+    "js/config/config.js",
+    "js/features/avatar.js",
+    "js/features/report.js",
+    "assets/images/logo.svg",
+    "assets/images/car-hero.svg",
+    "assets/fonts/Roboto.ttf",
+    "assets/fonts/Roboto-Regular.ttf",
+    "assets/fonts/Roboto-Bold.ttf",
+    "assets/fonts/OFL.txt",
+    "vendor/supabase.js",
+    "vendor/jspdf.umd.min.js",
+    "vendor/jspdf-LICENSE.txt"
+  ]
+}
