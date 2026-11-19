@@ -1,5 +1,6 @@
-import { config } from '../config/config.js?v=13507858173f';
-import { reportDTO } from './dto.js?v=13507858173f';
+import { createGovernanceApi } from './governance-api.js?v=0af7c1752fca';
+import { config } from '../config/config.js?v=0af7c1752fca';
+import { reportDTO } from './dto.js?v=0af7c1752fca';
 import {
   validateDiary,
   validateProfile,
@@ -7,7 +8,7 @@ import {
   normalizeFactor,
   DIARY_FACTORS,
   validateNotice,
-} from '../domain/domain.js?v=13507858173f';
+} from '../domain/domain.js?v=0af7c1752fca';
 if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 
@@ -109,6 +110,7 @@ const profileFields = [
 
 // Acceso compartido con Android. Filtrar por propietario complementa las políticas RLS.
 export const api = {
+  ...createGovernanceApi(db),
   async report(userId) {
     if (!userId) throw new Error('Inicia sesión para generar tu informe.');
     return reportDTO(unwrap(await db.rpc('calmavial_informe', { p_usuario_id: userId })), userId);
@@ -209,7 +211,7 @@ export const api = {
     return allRows(() =>
       db
         .from('evaluaciones')
-        .select('*')
+        .select('*,calmavial_evaluacion_version(calmavial_cuestionarios(id,preguntas))')
         .eq('usuario_id', id)
         .order('creado_en', { ascending: false })
         .order('id', { ascending: false }),
@@ -248,7 +250,8 @@ export const api = {
     const payload = evaluationPayload(data);
     return unwrap(
       await db
-        .rpc('guardar_evaluacion', {
+        .rpc(data.questionnaireVersion ? 'guardar_evaluacion_versionada' : 'guardar_evaluacion', {
+          ...(data.questionnaireVersion ? { p_version: data.questionnaireVersion } : {}),
           p_request_id: requestId,
           p_respuestas: payload.respuestas,
           p_momento: payload.momento,
@@ -300,7 +303,9 @@ export const api = {
     const profiles = await allRows(() =>
       db
         .from('perfiles')
-        .select('id,nombres,apellido_paterno,correo,telefono,usuario,rol,creado_en')
+        .select(
+          'id,nombres,apellido_paterno,apellido_materno,edad,direccion,correo,telefono,usuario,rol,creado_en',
+        )
         .order('creado_en', { ascending: false })
         .order('id', { ascending: false }),
     );
@@ -308,7 +313,7 @@ export const api = {
       db
         .from('evaluaciones')
         .select(
-          'id,usuario_id,total,nivel,prom_general,prom_avance,prom_temeraria,prom_hostilidad,creado_en',
+          'id,usuario_id,respuestas,animo,momento,vehiculo,total,nivel,prom_general,prom_avance,prom_temeraria,prom_hostilidad,creado_en,calmavial_evaluacion_version(calmavial_cuestionarios(id,preguntas))',
         )
         .order('creado_en', { ascending: false })
         .order('id', { ascending: false }),

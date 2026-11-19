@@ -1,4 +1,4 @@
-import { calculate } from '../domain/domain.js?v=13507858173f';
+import { calculate } from '../domain/domain.js?v=0af7c1752fca';
 
 // DTO de salida: limita campos y comprueba el contrato antes de generar el documento.
 export function reportDTO(value, expectedUserId) {

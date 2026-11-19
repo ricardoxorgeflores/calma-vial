@@ -27,7 +27,8 @@ export const QUESTIONS = [
   ['Estás conduciendo detrás de un camión grande que no te deja ver lo que hay delante.', 'AVANCE'],
 ];
 export const LABELS = ['Nada', 'Poco', 'Algo', 'Bastante', 'Muchísimo'];
-export const MOODS = ['Muy tranquilo', 'Tranquilo', 'Normal', 'Algo molesto', 'Muy molesto'];
+export const MOODS = ['Muy calmado', 'Calmado', 'Neutral', 'Molesto', 'Furioso'];
+export const MOOD_ICONS = ['😌', '🙂', '😐', '😟', '😠'];
 export const MOMENTS = ['Antes de conducir', 'Después de conducir', 'En otro momento'];
 export const VEHICLES = [
   'Particular',
@@ -185,10 +186,32 @@ export function calculate(answers) {
 export function validateProfile(p) {
   if (!p.nombres?.trim()) throw new Error('Escribe tus nombres.');
   for (const key of ['nombres', 'apellido_paterno', 'apellido_materno'])
-    if (p[key]?.trim() && (!/\p{L}/u.test(p[key]) || /[<>\u0000-\u001f]/u.test(p[key])))
+    if (
+      p[key]?.trim() &&
+      (p[key].trim().length < 2 ||
+        !/^[\p{L}][\p{L}\p{M} ’'.-]*$/u.test(p[key].trim()) ||
+        /[.]{2,}|[-]{2,}/.test(p[key]))
+    )
       throw new Error(
-        'Escribe nombres y apellidos válidos, sin etiquetas ni caracteres de control.',
+        'Nombres y apellidos: mínimo 2 caracteres, solo letras y separadores válidos.',
       );
+  if (
+    p.documento?.trim() &&
+    (!/^[\p{L}\p{N}][\p{L}\p{N} .-]{3,29}$/u.test(p.documento.trim()) || !/\d/.test(p.documento))
+  )
+    throw new Error('Documento inválido: utiliza de 4 a 30 caracteres y al menos un número.');
+  if (
+    p.direccion?.trim() &&
+    (p.direccion.trim().length < 5 ||
+      /[<>\u0000-\u001f]/u.test(p.direccion) ||
+      !/\p{L}/u.test(p.direccion))
+  )
+    throw new Error('Escribe una dirección de al menos 5 caracteres.');
+  if (
+    p.genero?.trim() &&
+    !['Masculino', 'Femenino', 'Otro', 'Prefiero no decirlo'].includes(p.genero)
+  )
+    throw new Error('Selecciona un género válido.');
   if (p.usuario != null && !/^[\p{L}\p{N}_.-]{3,50}$/u.test(p.usuario.trim()))
     throw new Error(
       'El usuario debe tener de 3 a 50 letras, números, puntos, guiones o guiones bajos.',

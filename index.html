@@ -14,20 +14,21 @@
       content="Tu espacio para conocer tus emociones al conducir. Evaluaciones DAS, diario y modo calma, conectados a tu app Calma Vial."
     />
     <title>Calma Vial · Tu espacio para conducir en calma</title>
-    <link rel="icon" href="./assets/images/logo.svg?v=13507858173f" type="image/svg+xml" />
-    <link rel="stylesheet" href="./css/tokens.css?v=13507858173f" />
-    <link rel="stylesheet" href="./css/base.css?v=13507858173f" />
-    <link rel="stylesheet" href="./css/auth.css?v=13507858173f" />
-    <link rel="stylesheet" href="./css/motion.css?v=13507858173f" />
-    <script src="./js/auth/auth-ui.js?v=13507858173f" defer></script>
-    <script src="./vendor/supabase.js?v=13507858173f" data-supabase-sdk defer></script>
-    <script type="module" src="./js/bootstrap.js?v=13507858173f"></script>
+    <link rel="icon" href="./assets/images/logo.svg?v=0af7c1752fca" type="image/svg+xml" />
+    <link rel="stylesheet" href="./css/tokens.css?v=0af7c1752fca" />
+    <link rel="stylesheet" href="./css/base.css?v=0af7c1752fca" />
+    <link rel="stylesheet" href="./css/auth.css?v=0af7c1752fca" />
+    <link rel="stylesheet" href="./css/motion.css?v=0af7c1752fca" />
+    <link rel="stylesheet" href="./css/workspace.css?v=0af7c1752fca" />
+    <script src="./js/auth/auth-ui.js?v=0af7c1752fca" defer></script>
+    <script src="./vendor/supabase.js?v=0af7c1752fca" data-supabase-sdk defer></script>
+    <script type="module" src="./js/bootstrap.js?v=0af7c1752fca"></script>
   </head>
   <body>
     <a class="skip" href="#main">Saltar al contenido</a>
     <!-- Acceso: presentación de la marca y formulario de autenticación. -->
     <section id="runtimeNotice" class="runtime-notice" role="status">
-      <img src="./assets/images/logo.svg?v=13507858173f" width="52" height="52" alt="Calma Vial" />
+      <img src="./assets/images/logo.svg?v=0af7c1752fca" width="52" height="52" alt="Calma Vial" />
       <h1>Abre Calma Vial desde su servidor</h1>
       <p>
         Un archivo <code>file:///</code> no puede ejecutar los módulos de acceso. Abre
@@ -48,7 +49,7 @@
           <span class="hero-road"></span>
           <img
             class="hero-car"
-            src="./assets/images/calma-car.png?v=13507858173f"
+            src="./assets/images/calma-car.png?v=0af7c1752fca"
             width="1920"
             height="819"
             alt=""
@@ -57,7 +58,7 @@
           />
         </div>
         <a class="brand light" href="#inicio"
-          ><img src="./assets/images/logo.svg?v=13507858173f" alt="" width="48" height="48" /><span
+          ><img src="./assets/images/logo.svg?v=0af7c1752fca" alt="" width="48" height="48" /><span
             >Calma Vial<small>BIENESTAR EN CADA RECORRIDO</small></span
           ></a
         >
@@ -163,7 +164,40 @@
                 minlength="6"
                 required
                 aria-describedby="authPasswordHint authPasswordValidation"
-              /><button type="button" id="showPass" aria-label="Mostrar contraseña">Ver</button>
+              /><button
+                type="button"
+                class="password-toggle"
+                id="showPass"
+                data-password-toggle="authPass"
+                aria-label="Mostrar contraseña"
+                aria-controls="authPass"
+                aria-pressed="false"
+              >
+                <span data-eye="open"
+                  ><svg
+                    class="ui-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    aria-hidden="true"
+                  >
+                    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="3" /></svg></span
+                ><span data-eye="closed" hidden
+                  ><svg
+                    class="ui-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m3 3 18 18M10 5a11 11 0 0 1 12 7 15 15 0 0 1-4 4M6 6a18 18 0 0 0-4 6s4 7 10 7a12 12 0 0 0 4-1"
+                    /></svg
+                ></span>
+              </button>
             </div>
             <p class="password-hint" id="authPasswordHint">
               Usa tu contraseña actual. Para crear una cuenta: mínimo 8 caracteres, mayúscula,
@@ -191,15 +225,50 @@
             <div id="confirmPassWrap" hidden>
               <label for="authConfirmPass"
                 >Confirmar contraseña <span aria-hidden="true">*</span></label
-              ><input
-                id="authConfirmPass"
-                type="password"
-                autocomplete="new-password"
-                minlength="8"
-                placeholder="Repite tu contraseña"
-                disabled
-                aria-describedby="authConfirmValidation"
-              />
+              >
+              <div class="password-field">
+                <input
+                  id="authConfirmPass"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  placeholder="Repite tu contraseña"
+                  disabled
+                  aria-describedby="authConfirmValidation"
+                /><button
+                  type="button"
+                  class="password-toggle"
+                  data-password-toggle="authConfirmPass"
+                  aria-label="Mostrar contraseña"
+                  aria-controls="authConfirmPass"
+                  aria-pressed="false"
+                >
+                  <span data-eye="open"
+                    ><svg
+                      class="ui-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.7"
+                      aria-hidden="true"
+                    >
+                      <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
+                      <circle cx="12" cy="12" r="3" /></svg></span
+                  ><span data-eye="closed" hidden
+                    ><svg
+                      class="ui-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.7"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="m3 3 18 18M10 5a11 11 0 0 1 12 7 15 15 0 0 1-4 4M6 6a18 18 0 0 0-4 6s4 7 10 7a12 12 0 0 0 4-1"
+                      /></svg
+                  ></span>
+                </button>
+              </div>
               <div
                 id="authConfirmValidation"
                 class="feedback field-feedback"
@@ -245,31 +314,57 @@
     <div id="appScreen" class="app-shell" hidden>
       <aside class="sidebar">
         <a href="#inicio" class="brand"
-          ><img src="./assets/images/logo.svg?v=13507858173f" width="43" height="43" alt="" /><span
+          ><img src="./assets/images/logo.svg?v=0af7c1752fca" width="43" height="43" alt="" /><span
             >Calma Vial<small>TU ESPACIO PERSONAL</small></span
           ></a
-        ><span class="nav-label">MI CAMINO</span>
+        ><span class="nav-label" id="personalNavLabel">MI CAMINO</span>
         <nav aria-label="Navegación principal">
-          <a href="#inicio" data-view="inicio"><span>⌂</span> Mi resumen</a
-          ><a href="#evaluacion" data-view="evaluacion"><span>▤</span> Autoevaluación</a
-          ><a href="#historial" data-view="historial"><span>◷</span> Mis resultados</a
-          ><a href="#diario" data-view="diario"><span>▧</span> Mi diario</a
-          ><a href="#calma" data-view="calma"><span>❋</span> Modo calma</a
-          ><a href="#informe" data-view="informe"><span>▥</span> Mi informe PDF</a
-          ><a href="#papelera" data-view="papelera"><span>↺</span> Papelera</a
-          ><a href="#avisos" data-view="avisos"><span>▣</span> Avisos</a
-          ><a href="#admin" data-view="admin" id="adminNav" hidden><span>▦</span> Administración</a>
+          <div id="adminMenu" hidden>
+            <span class="nav-label">ADMINISTRACIÓN</span>
+            <a href="#admin" data-view="admin" id="adminNav"><span>▦</span> Panel general</a>
+            <a href="#usuarios" data-view="usuarios"><span>♙</span> Usuarios y evolución</a>
+            <a href="#sugerencias" data-view="sugerencias"><span>☷</span> Bandeja de atención</a>
+            <a href="#avisos" data-view="avisos"><span>▣</span> Gestionar avisos</a>
+            <a href="#sistema" data-view="sistema"><span>⌘</span> Configuración y control</a>
+          </div>
+          <div class="personal-menu">
+            <a href="#inicio" data-view="inicio"><span>⌂</span> Mi resumen</a
+            ><a href="#evaluacion" data-view="evaluacion"><span>▤</span> Autoevaluación</a
+            ><a href="#historial" data-view="historial"><span>◷</span> Mis resultados</a
+            ><a href="#diario" data-view="diario"><span>▧</span> Mi diario</a
+            ><a href="#calma" data-view="calma"><span>❋</span> Modo calma</a
+            ><a href="#informe" data-view="informe"><span>▥</span> Mi informe PDF</a
+            ><a href="#papelera" data-view="papelera"><span>↺</span> Papelera</a
+            ><a href="#avisos" data-view="avisos"><span>▣</span> Avisos</a
+            ><a href="#sugerencias" data-view="sugerencias"
+              ><span>☷</span> Sugerencias y consultas</a
+            >
+          </div>
         </nav>
         <div class="sidebar-bottom">
           <div class="mobile-note">
             <span>⇄</span><strong>Siempre contigo</strong>
             <p>La misma cuenta.<br />Tu app y tu web.</p>
           </div>
-          <a href="#perfil" data-view="perfil" class="profile-link"
+          <a
+            href="#perfil"
+            data-view="perfil"
+            class="profile-link"
+            title="Ver y editar mi perfil"
+            data-action="edit-my-profile"
             ><span class="avatar" id="userAvatar">CV</span
             ><span
               ><strong id="userName">Mi cuenta</strong><small id="accountRole">Usuario</small></span
-            ><span>↗</span></a
+            ><span class="profile-edit"
+              ><svg
+                class="ui-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                aria-label="Editar mi perfil"
+              >
+                <path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15Z" /></svg></span></a
           ><button id="logoutBtn" class="logout">Cerrar sesión ↗</button>
         </div>
       </aside>

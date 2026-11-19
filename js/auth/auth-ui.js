@@ -226,11 +226,18 @@
       fieldError($(id));
     });
   }
-  $('showPass').addEventListener('click', () => {
-    const show = $('authPass').type === 'password';
-    $('authPass').type = show ? 'text' : 'password';
-    $('showPass').textContent = show ? 'Ocultar' : 'Ver';
-    $('showPass').setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  // Un mismo control accesible sirve para login, confirmación y recuperación.
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-password-toggle]');
+    if (!button) return;
+    const input = $(button.dataset.passwordToggle);
+    if (!input || !['password', 'text'].includes(input.type)) return;
+    const visible = input.type === 'password';
+    input.type = visible ? 'text' : 'password';
+    button.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    button.setAttribute('aria-pressed', String(visible));
+    button.querySelector('[data-eye="open"]').hidden = visible;
+    button.querySelector('[data-eye="closed"]').hidden = !visible;
   });
   for (const id of ['loginTab', 'signupTab'])
     $(id).addEventListener('keydown', (event) => {

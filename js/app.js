@@ -1,16 +1,24 @@
-import { api, db, unwrap } from './services/api.js?v=13507858173f';
-import { prepareAvatar } from './features/avatar.js?v=13507858173f';
+import { createGovernance } from './features/governance.js?v=0af7c1752fca';
+import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=0af7c1752fca';
+import { createManagementApi } from './services/management-api.js?v=0af7c1752fca';
+import { createManagementController } from './features/management-controller.js?v=0af7c1752fca';
+import { evolutionChart } from './features/evolution.js?v=0af7c1752fca';
+import { icon, passwordToggle } from './ui/icons.js?v=0af7c1752fca';
+import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=0af7c1752fca';
+import { api, db, unwrap } from './services/api.js?v=0af7c1752fca';
+import { prepareAvatar } from './features/avatar.js?v=0af7c1752fca';
 import {
   createReportPdf,
   loadReportFonts,
   loadPdfEngine,
   REPORT_DISCLAIMER,
-} from './features/report.js?v=13507858173f';
+} from './features/report.js?v=0af7c1752fca';
 import {
   QUESTIONS,
   LABELS,
   DIARY_FACTORS,
   MOODS,
+  MOOD_ICONS,
   MOMENTS,
   VEHICLES,
   roleLabel,
@@ -20,8 +28,7 @@ import {
   validateEmail,
   validatePassword,
   calculate,
-  csv,
-} from './domain/domain.js?v=13507858173f';
+} from './domain/domain.js?v=0af7c1752fca';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -33,6 +40,10 @@ const escape = (value) =>
 
 // revision permite descartar respuestas antiguas al cambiar de cuenta.
 const state = {
+  catalog: [],
+  evaluationVersions: [],
+  removedUsers: [],
+  evalQuestionnaire: originalQuestionnaire(),
   session: null,
   profile: null,
   evaluations: [],
@@ -52,6 +63,7 @@ const state = {
   archiveError: null,
   view: 'inicio',
   authMode: 'login',
+  profileEditing: false,
   hydrating: false,
   loading: false,
   error: null,
@@ -77,8 +89,10 @@ const titles = {
   diario: 'Mi diario',
   calma: 'Modo calma',
   perfil: 'Mi perfil',
-  admin: 'Administración',
-  sistema: 'Arquitectura y seguridad',
+  admin: 'Panel de administración',
+  usuarios: 'Usuarios y evolución',
+  sugerencias: 'Sugerencias y consultas',
+  sistema: 'Configuración y control',
   avisos: 'Avisos de la plataforma',
   informe: 'Mi informe PDF',
   papelera: 'Papelera',
@@ -90,6 +104,45 @@ let reportRequest = 0;
 let archiveRequest = 0;
 let authPending = false,
   loginRole = null;
+
+const managementController = createManagementController({
+  api: createManagementApi(db),
+  context: () => state,
+  adminData: () => state.admin,
+  ensureAdmin: async () => {
+    if (!state.admin) await loadAdmin();
+  },
+  openModal,
+  closeModal,
+  render,
+  toast,
+  errorText,
+  feedback,
+  busy,
+  profileChanged: async (row) => {
+    if (state.admin)
+      state.admin.profiles = state.admin.profiles.map((profile) =>
+        profile.id === row.id ? row : profile,
+      );
+    if (state.profile?.id === row.id) state.profile = row;
+    confirmWrite('perfiles', row.id, 'Editado por administración');
+  },
+});
+
+const governance = createGovernance({
+  state,
+  api,
+  render,
+  openModal,
+  closeModal,
+  toast,
+  errorText,
+  reload: async () => {
+    await loadData();
+    await loadAdmin();
+    render();
+  },
+});
 
 function date(value, short = false) {
   const d = new Date(value);
@@ -249,7 +302,7 @@ function empty(title, text, action = '') {
 function badge(level) {
   return /* HTML */ `<span
     class="badge ${['Bajo', 'Moderado', 'Elevado'].includes(level) ? level.toLowerCase() : ''}"
-    >${escape(level || 'Sin evaluar')}</span
+    >${level === 'Bajo' ? '😌 ' : level === 'Moderado' ? '😐 ' : level === 'Elevado' ? '😠 ' : ''}${escape(level || 'Sin evaluar')}</span
   >`;
 }
 
@@ -302,7 +355,7 @@ function score(ev) {
         </p>
       </div>
     </div>
-    ${bars(ev)}`;
+    ${Number.isInteger(Number(ev.animo)) && ev.animo != null ? `<p class="mood-summary">Ánimo que registraste: ${MOOD_ICONS[Number(ev.animo) - 1] || ''} ${escape(MOODS[Number(ev.animo) - 1] || '')}</p>` : ''}${bars(ev)}`;
 }
 
 function resultNote() {
@@ -428,9 +481,9 @@ function archiveView() {
   return (
     heading(
       'Papelera',
-      'La eliminación lógica conserva tus registros. Puedes restaurarlos para volver a verlos en la web y la app al actualizar.',
+      'Los registros de la papelera se conservan. Puedes restaurarlos para volver a verlos.',
     ) +
-    `<section class="card">${state.archiveError ? `<div class="feedback" role="alert">${escape(state.archiveError)}</div><button class="button" data-action="refresh-archive">Volver a intentar</button>` : state.archived === null ? '<p role="status">Cargando registros archivados…</p>' : state.archived.length ? state.archived.map((row) => `<article class="archive-item"><div><span class="badge">${row.tipo === 'evaluaciones' ? 'Evaluación' : 'Diario'}</span><p>${escape(row.detalle)}</p><small>Archivado el ${date(row.archivado_en)}</small></div><button class="button ghost" data-action="restore-record" data-type="${row.tipo}" data-id="${row.id}">Restaurar</button></article>`).join('') : empty('Papelera vacía', 'Aquí aparecerán los registros que archives, sin borrarlos físicamente.')}</section>`
+    `<section class="card">${state.archiveError ? `<div class="feedback" role="alert">${escape(state.archiveError)}</div><button class="button" data-action="refresh-archive">Volver a intentar</button>` : state.archived === null ? '<p role="status">Cargando registros archivados…</p>' : state.archived.length ? state.archived.map((row) => `<article class="archive-item"><div><span class="badge">${row.tipo === 'evaluaciones' ? 'Evaluación' : 'Diario'}</span><p>${escape(row.detalle)}</p><small>Archivado el ${date(row.archivado_en)}</small></div><button class="button ghost" data-action="restore-record" data-type="${row.tipo}" data-id="${row.id}">Restaurar</button></article>`).join('') : empty('Papelera vacía', 'Aquí aparecerán los registros que envíes a la papelera.')}</section>`
   );
 }
 
@@ -456,7 +509,7 @@ function dashboard() {
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
         <div class="hero-wheel" aria-hidden="true">
-          <img src="./assets/images/logo.svg?v=13507858173f" alt="" />
+          <img src="./assets/images/logo.svg?v=0af7c1752fca" alt="" />
         </div>
       </section>
       <div class="stats-grid">
@@ -582,11 +635,8 @@ function history() {
         .includes(state.historySearch.toLowerCase()),
   );
   return (
-    heading(
-      'Mis resultados',
-      'Cada evaluación es una oportunidad para conocerte mejor.',
-      '<button class="button ghost" data-action="export-results">Exportar CSV ↓</button>',
-    ) +
+    heading('Mis resultados', 'Cada evaluación es una oportunidad para conocerte mejor.') +
+    evolutionChart(state.evaluations) +
     /* HTML */ `<div id="historyReportStatus">${reportReadiness()}</div>
       <section class="card">
         <div class="toolbar">
@@ -637,7 +687,7 @@ function history() {
                                 data-id="${escape(e.id)}"
                                 aria-label="Eliminar evaluación del ${date(e.creado_en)}"
                               >
-                                Eliminar físicamente
+                                Eliminar
                               </button>
                               <button
                                 class="text-button"
@@ -708,7 +758,7 @@ function journal() {
                       <div class="intensity" aria-label="Intensidad ${Number(row.intensidad)} de 5">
                         ${Array.from({ length: 5 }, (_, i) => /* HTML */ `<i class="${i < row.intensidad ? 'filled' : ''}"></i>`).join('')}
                       </div>
-                      ${row.reaccion ? /* HTML */ `<p><strong>Mi reacción:</strong> ${escape(row.reaccion)}</p>` : ''}${row.nota ? /* HTML */ `<p>${escape(row.nota)}</p>` : ''}
+                      ${diaryEmotion(row.reaccion).emotion ? `<span class="emotion-pill">${EMOTIONS[diaryEmotion(row.reaccion).emotion]}</span>` : ''}${row.reaccion ? /* HTML */ `<p><strong>Mi reacción:</strong> ${escape(row.reaccion)}</p>` : ''}${row.nota ? /* HTML */ `<p>${escape(row.nota)}</p>` : ''}
                       <div class="entry-actions">
                         <button
                           class="text-button"
@@ -758,6 +808,7 @@ function journal() {
 }
 
 function diaryModal(row) {
+  const feeling = diaryEmotion(row?.reaccion);
   openModal(
     row ? 'Editar mi registro' : 'Un momento para recordar',
     /* HTML */ `<form id="diaryForm" data-id="${escape(row?.id || '')}">
@@ -786,19 +837,32 @@ ${escape(row?.situacion || '')}</textarea>
           </select>
         </div>
         <div>
-          <label for="intensity">Intensidad</label
+          <label for="intensity">Intensidad de la emoción</label
           ><select id="intensity" name="intensidad" required>
-            <option value="">¿Cuánto sentiste?</option>
-            ${LABELS.map((l, i) => /* HTML */ `<option value="${i + 1}" ${Number(row?.intensidad) === i + 1 ? 'selected' : ''}>${i + 1} · ${l}</option>`).join('')}
+            <option value="">Elige la intensidad, de 1 a 5</option>
+            ${DIARY_INTENSITIES.map((l, i) => /* HTML */ `<option value="${i + 1}" ${Number(row?.intensidad) === i + 1 ? 'selected' : ''}>${i + 1} · ${l}</option>`).join('')}
           </select>
         </div>
       </div>
+      <label for="diaryEmotion">¿Cómo te sentiste?</label
+      ><select id="diaryEmotion" name="emocion">
+        <option value="">Elige una emoción (opcional)</option>
+        ${Object.entries(EMOTIONS)
+          .map(
+            ([key, label]) =>
+              `<option value="${key}" ${feeling.emotion === key ? 'selected' : ''}>${label}</option>`,
+          )
+          .join('')}
+      </select>
+      <p class="mini-note">
+        La emoción y su intensidad son diferentes: por ejemplo, tristeza leve o enojo intenso.
+      </p>
       <label for="reaction">¿Cómo reaccionaste?</label
       ><input
         id="reaction"
         name="reaccion"
         maxlength="2000"
-        value="${escape(row?.reaccion || '')}"
+        value="${escape(feeling.reaction)}"
         placeholder="Lo que hiciste o pensaste"
       /><label for="note">Una reflexión (opcional)</label
       ><textarea
@@ -856,7 +920,7 @@ function evaluation() {
             <div class="wide">
               <label for="mood">¿Cómo te sientes ahora?</label
               ><select id="mood" name="animo">
-                ${MOODS.map((label, index) => `<option value="${index + 1}">${label}</option>`).join('')}
+                ${MOODS.map((label, index) => `<option value="${index + 1}">${MOOD_ICONS[index]} ${label}</option>`).join('')}
               </select>
             </div>
             <label class="check wide"
@@ -868,6 +932,7 @@ function evaluation() {
           <div class="form-actions">
             <button class="button" type="submit">Comenzar mi evaluación ↗</button>
           </div>
+          <div id="contextFeedback" class="feedback" hidden role="alert"></div>
         </form>
         ${resultNote()}
       </section>`
@@ -881,7 +946,7 @@ function evaluation() {
         ><span>${state.answers.filter(Boolean).length} respondidas</span>
       </div>
       <div class="track"><span data-width="${((i + 1) / 14) * 100}"></span></div>
-      <h2 class="eval-question">${QUESTIONS[i][0]}</h2>
+      <h2 class="eval-question">${escape(state.evalQuestionnaire.preguntas[i])}</h2>
       <p class="subtle">¿Cuánto enojo te provocaría esta situación?</p>
       <div class="eval-options" role="group" aria-label="Cuánto enojo te provoca">
         ${LABELS.map((l, j) => /* HTML */ `<button class="answer ${state.answers[i] === j + 1 ? 'selected' : ''}" data-action="answer" data-value="${j + 1}" aria-pressed="${state.answers[i] === j + 1}"><strong>${j + 1}</strong>${l}</button>`).join('')}
@@ -908,7 +973,7 @@ function evaluation() {
 function resultModal(ev) {
   const advice = recommendations(ev);
   const top = (ev.respuestas || [])
-    .map((value, i) => ({ value, text: QUESTIONS[i]?.[0] }))
+    .map((value, i) => ({ value, text: ev.question_texts?.[i] || QUESTIONS[i]?.[0] }))
     .filter((q) => q.value >= 4 && q.text)
     .sort((a, b) => b.value - a.value)
     .slice(0, 3);
@@ -1089,6 +1154,9 @@ function profile() {
       p.id
         ? 'Tus datos personales y de contacto, compartidos con la app móvil.'
         : 'Un último paso para empezar tu recorrido.',
+      p.id
+        ? `<button class="button" data-action="edit-profile">${icon('edit')} Editar mis datos</button>`
+        : '',
     ) +
     /* HTML */ `<section class="card narrow">
       <div class="profile-summary">
@@ -1125,20 +1193,22 @@ function profile() {
       </form>
       ${!p.id ? '<div class="notice">Tu cuenta está creada. Completa los datos de tu perfil para guardar evaluaciones y registros.</div>' : ''}
       <form id="profileForm">
-        <div class="form-grid">
-          ${field('nombres', 'Nombres', p.nombres, 'text', 'required maxlength="100" autocomplete="given-name"')}${field('apellido_paterno', 'Apellido paterno', p.apellido_paterno, 'text', 'maxlength="100" autocomplete="family-name"')}${field('apellido_materno', 'Apellido materno', p.apellido_materno, 'text', 'maxlength="100"')}${field('usuario', 'Nombre de usuario', p.usuario, 'text', 'required maxlength="50" autocomplete="username"')}${field('documento', 'Documento de identidad (opcional)', p.documento, 'text', 'maxlength="30"')}${field('edad', 'Edad', p.edad, 'number', 'required min="18" max="99" step="1"')}
-          <div>
-            <label for="genero">Género</label
-            ><select id="genero" name="genero">
-              ${['Masculino', 'Femenino', 'Otro', 'Prefiero no decirlo'].map((v) => /* HTML */ `<option ${p.genero === v ? 'selected' : ''}>${v}</option>`).join('')}
-            </select>
+        <fieldset class="profile-fields" ${p.id && !state.profileEditing ? 'disabled' : ''}>
+          <div class="form-grid">
+            ${field('nombres', 'Nombres', p.nombres, 'text', 'required maxlength="100" autocomplete="given-name"')}${field('apellido_paterno', 'Apellido paterno', p.apellido_paterno, 'text', 'maxlength="100" autocomplete="family-name"')}${field('apellido_materno', 'Apellido materno', p.apellido_materno, 'text', 'maxlength="100"')}${field('usuario', 'Nombre de usuario', p.usuario, 'text', 'required maxlength="50" autocomplete="username"')}${field('documento', 'Documento de identidad (opcional)', p.documento, 'text', 'maxlength="30"')}${field('edad', 'Edad', p.edad, 'number', 'required min="18" max="99" step="1"')}
+            <div>
+              <label for="genero">Género</label
+              ><select id="genero" name="genero">
+                ${['Masculino', 'Femenino', 'Otro', 'Prefiero no decirlo'].map((v) => /* HTML */ `<option ${p.genero === v ? 'selected' : ''}>${v}</option>`).join('')}
+              </select>
+            </div>
+            ${field('telefono', 'Teléfono', p.telefono, 'tel', 'maxlength="30" autocomplete="tel"')}${field('direccion', 'Dirección', p.direccion, 'text', 'maxlength="250" autocomplete="street-address"')}
           </div>
-          ${field('telefono', 'Teléfono', p.telefono, 'tel', 'maxlength="30" autocomplete="tel"')}${field('direccion', 'Dirección', p.direccion, 'text', 'maxlength="250" autocomplete="street-address"')}
-        </div>
-        <div class="feedback" id="profileFeedback" hidden role="alert"></div>
-        <div class="form-actions">
-          <button class="button" type="submit">Guardar perfil ↗</button>
-        </div>
+          <div class="feedback" id="profileFeedback" hidden role="alert"></div>
+          <div class="form-actions">
+            <button class="button" type="submit">Guardar perfil ↗</button>
+          </div>
+        </fieldset>
       </form>
       <p class="status-detail">${roleLabel(p.rol)} · Los permisos se validan en el servidor.</p>
     </section>`
@@ -1238,28 +1308,32 @@ function noticeForm(notice = {}) {
 }
 
 function systemOverview() {
-  if (state.profile?.rol !== 'admin') return dashboard();
-  return (
-    heading(
-      'Arquitectura y seguridad',
-      'Documentación operativa de Calma Vial. Los controles se aplican también en el servidor.',
-      '<a class="button ghost" href="#admin">Volver a administración</a>',
-    ) +
-    `
-    <section class="card">
-      <div class="card-title"><h2>Una cuenta, dos aplicaciones</h2><span class="badge">Web · Android</span></div>
-      <ol class="architecture-flow"><li><strong>Interfaz</strong><span>HTML, CSS y JavaScript · GitHub Pages</span></li><li><strong>Autenticación y API</strong><span>Supabase Auth · HTTPS · sesión de usuario</span></li><li><strong>Persistencia</strong><span>PostgreSQL · claves foráneas · políticas RLS</span></li></ol>
-      <p class="subtle">El SDK envía y recibe JSON. Los DTO limitan campos, validan fechas e identidad y recalculan los resultados del informe. Android consulta el mismo proyecto y las mismas tablas. Realtime y la actualización periódica permiten refrescar la web.</p>
-    </section>
-    <div class="insights-grid">
-      <section class="card"><h2>Identidad y permisos</h2><dl class="data-status-list"><dt>Usuario</dt><dd>Consulta y administra sus evaluaciones, diario y perfil.</dd><dt>Administrador</dt><dd>Consulta perfiles, indicadores y evaluaciones autorizadas. El diario sigue siendo privado.</dd><dt>Control de acceso</dt><dd>Supabase Auth valida la cuenta. PostgreSQL verifica el propietario y el rol; elegir un botón no concede permisos.</dd><dt>Contraseñas</dt><dd>Supabase Auth almacena hashes bcrypt en <code>auth.users.encrypted_password</code>. La web no lee hashes ni guarda contraseñas en las tablas públicas.</dd></dl></section>
-      <section class="card"><h2>Integridad de los registros</h2><dl class="data-status-list"><dt>Relaciones</dt><dd><code>perfiles.id</code> identifica la cuenta. <code>evaluaciones.usuario_id</code> y <code>diario.usuario_id</code> relacionan sus registros.</dd><dt>Evaluaciones</dt><dd><code>guardar_evaluacion</code> valida 14 respuestas de 1 a 5, calcula el resultado y reconoce solicitudes repetidas mediante su identificador.</dd><dt>Eliminación</dt><dd>Física con confirmación y permiso de propietario; lógica mediante archivo y restauración desde Papelera. Las políticas ocultan lo archivado en web y Android al actualizar.</dd><dt>Guardado</dt><dd>El éxito se muestra después de la respuesta del servidor. Ante un tiempo de espera agotado, consulta el historial antes de repetir.</dd></dl></section>
-    </div>
-    <section class="card"><h2>Comprobación durante la exposición</h2><ol class="demo-steps"><li>Intenta acceder con un correo incorrecto y una contraseña corta.</li><li>Selecciona un rol distinto al de tu cuenta y comprueba el rechazo.</li><li>Guarda una evaluación y abre el historial.</li><li>Crea y edita una reflexión de prueba; revisa la escritura confirmada.</li><li>Comprueba el registro en Supabase y después en Android con tu cuenta.</li><li>Cierra la sesión y verifica que ya no aparecen datos privados.</li></ol><button class="button" data-action="data-status">Consultar estado de mis datos</button><p class="mini-note">Esta pantalla describe la implementación; no certifica pruebas en un teléfono ni sustituye una auditoría de seguridad. Las pruebas y sus límites se documentan en VERIFICACION.md.</p></section>`
-  );
+  return governance.view();
 }
 
 function admin() {
+  if (!state.admin)
+    return (
+      heading('Panel de administración', 'Conectando la gestión de tu comunidad.') +
+      '<div class="loading-state"><div class="spinner"></div>Cargando datos autorizados…</div>'
+    );
+  const summary = adminSummary(state.admin.evaluations);
+  const threads = managementController.items;
+  return `<section class="admin-welcome"><div><span class="eyebrow">CENTRO DE GESTIÓN · CALMA VIAL</span><h1>Tu comunidad,<br />con acompañamiento.</h1><p>Revisa evaluaciones, observa tendencias y responde a los usuarios desde un espacio de administración propio.</p><a class="button" href="#usuarios">${icon('users')} Gestionar usuarios</a></div><div class="admin-welcome-art" aria-hidden="true">${icon('chart')}<span>Observar. Orientar. Acompañar.</span></div></section>
+    <div class="platform-metrics"><article class="metric-card"><span>Comunidad</span><strong>${state.admin.profiles.length}</strong><small>Cuentas registradas</small></article><article class="metric-card"><span>Evaluaciones</span><strong>${summary.count}</strong><small>Registros autorizados</small></article><article class="metric-card"><span>Atención pendiente</span><strong>${threads ? threads.filter((row) => !row.eliminado && row.estado !== 'resuelta').length : '—'}</strong><small>Consultas por atender</small></article><article class="metric-card"><span>Participación</span><strong>${summary.active}</strong><small>Personas con evaluaciones</small></article></div>
+    <div class="admin-shortcuts"><a class="card" href="#usuarios">${icon('users')}<h2>Usuarios y evolución</h2><p>Datos, respuestas y gráficos individuales.</p></a><a class="card" href="#sugerencias">${icon('chat')}<h2>Bandeja de atención</h2><p>Responder, moderar y dar seguimiento.</p></a><a class="card" href="#avisos">${icon('edit')}<h2>Avisos de la plataforma</h2><p>Publicar y gestionar información para la comunidad.</p></a></div>
+    <div class="insights-grid"><section class="card"><div class="card-title"><h2>Factores de la comunidad</h2><span class="badge">DAS · 14 ítems</span></div>${summary.count ? bars(summary.factors) : '<p class="subtle">Todavía no hay evaluaciones.</p>'}</section><section class="card"><div class="card-title"><h2>Últimas evaluaciones</h2><a class="text-button" href="#usuarios">Ver usuarios</a></div><div class="admin-recent">${
+      state.admin.evaluations
+        .slice(0, 5)
+        .map((row) => {
+          const person = state.admin.profiles.find((p) => p.id === row.usuario_id);
+          return `<button data-action="manage-user" data-id="${escape(row.usuario_id)}"><span class="avatar">${escape(person?.nombres?.slice(0, 2) || 'CV')}</span><span><strong>${escape(person?.nombres || 'Usuario')}</strong><small>${date(row.creado_en)}</small></span>${badge(row.nivel)}${icon('arrow')}</button>`;
+        })
+        .join('') || '<p class="subtle">Los registros aparecerán aquí.</p>'
+    }</div></section></div>`;
+}
+
+function users() {
   if (!state.admin)
     return (
       heading('Administración', 'Información de las cuentas autorizadas.') +
@@ -1268,9 +1342,9 @@ function admin() {
   const summary = adminSummary(state.admin.evaluations);
   return (
     heading(
-      'Administración',
+      'Usuarios y evolución',
       'Consulta de usuarios y seguimiento de evaluaciones.',
-      '<div class="form-actions"><a class="button" href="#avisos">Gestionar avisos</a><a class="button ghost" href="#sistema">Arquitectura y seguridad</a><button class="button ghost" data-action="export-admin">Exportar datos seudonimizados ↓</button></div>',
+      '<a class="button" href="#sugerencias">Bandeja de atención</a>',
     ) +
     /* HTML */ `<div class="platform-metrics">
         <article class="metric-card">
@@ -1345,8 +1419,8 @@ function admin() {
           </table>
         </div>
         <p class="mini-note">
-          Solo se muestran registros autorizados por el servidor. El CSV usa códigos de participante
-          y excluye nombres y correos. Conserva estos datos para el propósito académico autorizado.
+          Selecciona una cuenta para revisar respuestas, ver su evolución, editar sus datos o enviar
+          una orientación privada. Las acciones administrativas quedan auditadas.
         </p>
       </section>`
   );
@@ -1376,9 +1450,10 @@ function adminRows(query) {
           <td>${es.length}</td>
           <td>${badge(es[0]?.nivel)}</td>
           <td>
-            <button class="text-button" data-action="admin-detail" data-id="${escape(p.id)}">
-              Ver actividad ↗
+            <button class="text-button" data-action="manage-user" data-id="${escape(p.id)}">
+              Ver evolución ↗
             </button>
+            ${p.rol === 'usuario' ? `<button class="text-button" data-action="govern-account" data-id="${escape(p.id)}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Restaurar usuario' : 'Eliminar usuario'}</button><small>${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Acceso retirado' : 'Activo'}</small>` : ''}
           </td>
         </tr>`;
       })
@@ -1400,8 +1475,10 @@ function navigate() {
     return;
   }
   let view = Object.hasOwn(titles, desired) ? desired : 'inicio';
+  if (state.profile?.rol === 'admin' && view === 'inicio') view = 'admin';
   if (!state.profile) view = 'perfil';
-  if (['admin', 'sistema'].includes(view) && state.profile?.rol !== 'admin') view = 'inicio';
+  if (['admin', 'usuarios', 'sistema'].includes(view) && state.profile?.rol !== 'admin')
+    view = 'inicio';
   if (state.view === 'calma' && view !== 'calma') stopBreathing();
   const viewChanged = state.view !== view;
   state.view = view;
@@ -1410,7 +1487,11 @@ function navigate() {
     window.scrollTo?.(0, 0);
     $('page').focus?.({ preventScroll: true });
   }
-  if (view === 'admin' && !state.admin) loadAdmin();
+  if (['admin', 'usuarios', 'sistema'].includes(view) && !state.admin) loadAdmin();
+  if (view === 'sugerencias') {
+    if (state.profile?.rol === 'admin' && !state.admin) void loadAdmin();
+    void managementController.load();
+  }
   if (view === 'avisos') void loadNotices();
   if (view === 'informe') void refreshReport();
   if (view === 'papelera') void loadArchived();
@@ -1418,7 +1499,11 @@ function navigate() {
 
 function render() {
   if (!state.session) return;
-  if (['admin', 'sistema'].includes(state.view) && state.profile && state.profile.rol !== 'admin') {
+  if (
+    ['admin', 'usuarios', 'sistema'].includes(state.view) &&
+    state.profile &&
+    state.profile.rol !== 'admin'
+  ) {
     state.view = 'inicio';
     state.admin = null;
   }
@@ -1432,6 +1517,9 @@ function render() {
     .join('')
     .toUpperCase();
   $('adminNav').hidden = state.profile?.rol !== 'admin';
+  $('adminMenu').hidden = state.profile?.rol !== 'admin';
+  $('appScreen').classList.toggle('is-admin', state.profile?.rol === 'admin');
+  $('personalNavLabel').textContent = state.profile?.rol === 'admin' ? 'MI CUENTA' : 'MI CAMINO';
   $('accountRole').textContent = roleLabel(state.profile?.rol);
   $('breadcrumb').textContent = 'Mi espacio / ' + titles[state.view];
   document.title = `${titles[state.view]} · Calma Vial`;
@@ -1462,6 +1550,8 @@ function render() {
     calma: calm,
     perfil: profile,
     admin,
+    usuarios: users,
+    sugerencias: () => managementController.render(),
     sistema: systemOverview,
     avisos: notices,
     informe: reportView,
@@ -1480,6 +1570,15 @@ async function loadData({ quiet = false } = {}) {
   state.error = null;
   $('syncState').textContent = 'Actualizando…';
   try {
+    if (api.accountActive && !(await api.accountActive())) {
+      if (revision !== state.revision) return false;
+      await signOutAndShowLogin();
+      feedback(
+        'authFeedback',
+        'El acceso de esta cuenta fue retirado. Contacta con administración.',
+      );
+      return false;
+    }
     const p = await api.profile(userId);
     if (revision !== state.revision) return false;
     if (p?.rol !== state.profile?.rol) {
@@ -1488,10 +1587,23 @@ async function loadData({ quiet = false } = {}) {
       state.admin = null;
     }
     state.profile = p;
+    if (api.questionnaires) {
+      const [catalog, versions] = await Promise.all([
+        api.questionnaires(),
+        api.evaluationVersions(),
+      ]);
+      if (revision !== state.revision) return false;
+      state.catalog = catalog;
+      state.evaluationVersions = versions;
+    }
     if (p) {
       const [evaluations, diary] = await Promise.all([api.evaluations(userId), api.diary(userId)]);
       if (revision !== state.revision) return false;
-      state.evaluations = evaluations || [];
+      state.evaluations = (evaluations || []).map((row) => ({
+        ...row,
+        question_texts: questionsFor(row, state.catalog, state.evaluationVersions).preguntas,
+        questionnaire_id: questionsFor(row, state.catalog, state.evaluationVersions).id,
+      }));
       state.diary = diary || [];
     } else {
       state.evaluations = [];
@@ -1526,8 +1638,23 @@ async function loadAdmin() {
   try {
     const result = await api.admin();
     if (revision !== state.revision) return;
+    if (api.accountStates) {
+      const [removed, versions] = await Promise.all([
+        api.accountStates(),
+        api.evaluationVersions(),
+      ]);
+      if (revision !== state.revision) return;
+      state.removedUsers = removed;
+      state.evaluationVersions = versions;
+    }
+    result.evaluations = result.evaluations.map((row) => ({
+      ...row,
+      question_texts: questionsFor(row, state.catalog, state.evaluationVersions).preguntas,
+      questionnaire_id: questionsFor(row, state.catalog, state.evaluationVersions).id,
+    }));
     state.admin = result;
-    if (state.view === 'admin') render();
+    void managementController.load();
+    if (['admin', 'usuarios', 'sistema'].includes(state.view)) render();
   } catch (e) {
     if (revision !== state.revision) return;
     state.admin = null;
@@ -1544,6 +1671,13 @@ async function receiveSession(session) {
     return;
   }
   state.revision++;
+  state.profileEditing = false;
+  managementController.reset();
+  governance.reset();
+  state.catalog = [];
+  state.removedUsers = [];
+  state.evaluationVersions = [];
+  state.evalQuestionnaire = originalQuestionnaire();
   if (syncChannel) {
     db.removeChannel?.(syncChannel);
     syncChannel = null;
@@ -1591,6 +1725,7 @@ async function receiveSession(session) {
     $('accountRole').textContent = '';
     $('breadcrumb').textContent = '';
     $('adminNav').hidden = true;
+    $('adminMenu').hidden = true;
     $('authScreen').hidden = false;
     $('appScreen').hidden = true;
     document.title = 'Calma Vial · Tu espacio para conducir en calma';
@@ -1658,36 +1793,32 @@ function authMode(mode) {
   accessUI.setMode(mode);
 }
 
-function downloadCSV(filename, rows) {
-  const url = URL.createObjectURL(new Blob([csv(rows)], { type: 'text/csv;charset=utf-8;' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 function recovery() {
   openModal(
     'Elige tu nueva contraseña',
     /* HTML */ `<form id="recoveryForm">
-      <label for="newPassword">Nueva contraseña</label
-      ><input
-        id="newPassword"
-        name="password"
-        type="password"
-        minlength="8"
-        autocomplete="new-password"
-        required
-      /><label for="confirmPassword">Repite la contraseña</label
-      ><input
-        id="confirmPassword"
-        name="confirmPassword"
-        type="password"
-        minlength="8"
-        autocomplete="new-password"
-        required
-      />
+      <label for="newPassword">Nueva contraseña</label>
+      <div class="password-field">
+        <input
+          id="newPassword"
+          name="password"
+          type="password"
+          minlength="8"
+          autocomplete="new-password"
+          required
+        />${passwordToggle('newPassword')}
+      </div>
+      <label for="confirmPassword">Repite la contraseña</label>
+      <div class="password-field">
+        <input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          minlength="8"
+          autocomplete="new-password"
+          required
+        />${passwordToggle('confirmPassword')}
+      </div>
       <div id="recoveryFeedback" class="feedback" hidden role="alert"></div>
       <button class="button full" type="submit">Guardar nueva contraseña</button>
     </form>`,
@@ -1857,6 +1988,17 @@ document.addEventListener('submit', async (event) => {
   const button = form.querySelector('[type=submit]');
   if (form.id === 'evalContextForm') {
     if (state.evaluationSaving) return;
+    try {
+      if (api.questionnaires) {
+        state.catalog = await api.questionnaires();
+        if (formRevision !== state.revision) return;
+      }
+      state.evalQuestionnaire =
+        state.catalog.find((item) => item.vigente) || originalQuestionnaire();
+    } catch (error) {
+      feedback('contextFeedback', errorText(error));
+      return;
+    }
     state.context = fields;
     state.evalRequestId = crypto.randomUUID();
     state.evalStep = 0;
@@ -1895,6 +2037,7 @@ document.addEventListener('submit', async (event) => {
       }
       if (form.id === 'diaryForm') {
         feedback('diaryFeedback', '');
+        fields.reaccion = composeReaction(fields.emocion || '', fields.reaccion);
         const saved = await api.saveDiary(
           state.session.user.id,
           fields,
@@ -1913,6 +2056,7 @@ document.addEventListener('submit', async (event) => {
         const profile = await api.saveProfile(state.session.user, fields, Boolean(state.profile));
         if (formRevision !== state.revision) return;
         state.profile = profile;
+        state.profileEditing = false;
         confirmWrite('perfiles', profile.id, 'Actualizado');
         location.hash = 'inicio';
         navigate();
@@ -2102,6 +2246,16 @@ document.addEventListener('click', async (event) => {
     });
     return;
   }
+  if (['edit-profile', 'edit-my-profile'].includes(target.dataset.action)) {
+    state.profileEditing = true;
+    if (target.dataset.action === 'edit-my-profile') {
+      location.hash = 'perfil';
+      state.view = 'perfil';
+    }
+    render();
+    $('nombres')?.focus();
+    return;
+  }
   const action = target.dataset.action,
     id = target.dataset.id,
     actionRevision = state.revision;
@@ -2160,19 +2314,6 @@ document.addEventListener('click', async (event) => {
           'Tu resumen',
           `<label for="resultText">Selecciona y copia este texto</label><textarea id="resultText" readonly>${escape(text)}</textarea>`,
         );
-      return;
-    }
-    if (action === 'admin-detail' && state.profile?.rol === 'admin' && state.admin) {
-      const p = state.admin.profiles.find((p) => String(p.id) === id);
-      if (!p) return;
-      const rows = state.admin.evaluations.filter((e) => e.usuario_id === p.id);
-      const summary = adminSummary(rows);
-      openModal(
-        'Actividad de la cuenta',
-        `<div class="form-actions"><button class="button" data-action="admin-report" data-id="${escape(p.id)}" ${rows.length < 3 ? 'disabled' : ''}>Generar informe PDF del usuario</button></div>` +
-          `<dl class="data-status-list"><dt>Correo</dt><dd>${escape(p.correo)}</dd><dt>Teléfono</dt><dd>${escape(p.telefono || 'No indicado')}</dd><dt>Usuario</dt><dd>${escape(p.usuario || 'No indicado')}</dd><dt>Registro</dt><dd>${date(p.creado_en)}</dd></dl>` +
-          `<div class="profile-summary"><span class="avatar">${escape(p.nombres?.slice(0, 2) || 'CV')}</span><div><h3>${escape(p.nombres)} ${escape(p.apellido_paterno)}</h3><p>${roleLabel(p.rol)} · ${rows.length} evaluaciones</p></div></div>${rows.length ? bars(summary.factors) + `<div class="table-wrap"><table class="activity-table"><thead><tr><th>Fecha</th><th>Total</th><th>Promedio</th><th>Nivel orientativo</th></tr></thead><tbody>${rows.map((e) => `<tr><td>${date(e.creado_en)}</td><td>${Number(e.total)}/70</td><td>${number(e.prom_general)}/5</td><td>${badge(e.nivel)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="subtle">Esta cuenta aún no tiene evaluaciones.</p>'}${resultNote()}`,
-      );
       return;
     }
     if (action === 'delete-evaluation') {
@@ -2267,63 +2408,6 @@ document.addEventListener('click', async (event) => {
       location.hash = 'calma';
       return;
     }
-    if (action === 'export-results') {
-      if (!state.evaluations.length) {
-        toast('Completa una evaluación para exportar tus resultados.');
-        return;
-      }
-      downloadCSV('calma-vial-mis-resultados.csv', [
-        [
-          'Fecha',
-          'Total',
-          'Promedio general',
-          'Avance impedido',
-          'Conducción temeraria',
-          'Hostilidad directa',
-          'Nivel orientativo',
-          'Momento',
-          'Vehículo',
-        ],
-        ...state.evaluations.map((e) => [
-          e.creado_en,
-          e.total,
-          e.prom_general,
-          e.prom_avance,
-          e.prom_temeraria,
-          e.prom_hostilidad,
-          e.nivel,
-          e.momento,
-          e.vehiculo,
-        ]),
-      ]);
-      return;
-    }
-    if (action === 'export-admin' && state.profile?.rol === 'admin' && state.admin) {
-      const ids = [...new Set(state.admin.evaluations.map((e) => e.usuario_id))];
-      downloadCSV('calma-vial-resumen-seudonimizado.csv', [
-        [
-          'Participante',
-          'Mes',
-          'Total',
-          'Promedio',
-          'Avance impedido',
-          'Conducción temeraria',
-          'Hostilidad directa',
-          'Nivel orientativo',
-        ],
-        ...state.admin.evaluations.map((e) => [
-          'P' + String(ids.indexOf(e.usuario_id) + 1).padStart(3, '0'),
-          String(e.creado_en).slice(0, 7),
-          e.total,
-          e.prom_general,
-          e.prom_avance,
-          e.prom_temeraria,
-          e.prom_hostilidad,
-          e.nivel,
-        ]),
-      ]);
-      return;
-    }
     if (action === 'answer') {
       state.answers[state.evalStep] = Number(target.dataset.value);
       render();
@@ -2358,10 +2442,13 @@ document.addEventListener('click', async (event) => {
             {
               ...result,
               ...state.context,
+              questionnaireVersion: state.evalQuestionnaire.id,
             },
             state.evalRequestId,
           );
           if (actionRevision !== state.revision) return;
+          saved.question_texts = [...state.evalQuestionnaire.preguntas];
+          saved.questionnaire_id = state.evalQuestionnaire.id;
           state.evaluationSaving = false;
           confirmWrite('evaluaciones', saved.id, 'Guardado');
           state.evaluations = [saved, ...state.evaluations.filter((e) => e.id !== saved.id)];
@@ -2426,7 +2513,9 @@ async function autoRefresh() {
   )
     return;
   await loadData({ quiet: true });
-  if (state.view === 'admin' && state.profile?.rol === 'admin') await loadAdmin();
+  if (['admin', 'usuarios'].includes(state.view) && state.profile?.rol === 'admin')
+    await loadAdmin();
+  if (state.view === 'sugerencias') await managementController.load();
   if (state.view === 'avisos') await loadNotices();
   if (!state.error && state.session) render();
 }
