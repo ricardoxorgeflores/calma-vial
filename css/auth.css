@@ -38,7 +38,7 @@
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  background: url('../assets/images/car-hero.svg?v=9669147ee55a') center bottom / cover;
+  background: url('../assets/images/car-hero.svg?v=be9b80479067') center bottom / cover;
 }
 .hero-visual::after {
   content: '';

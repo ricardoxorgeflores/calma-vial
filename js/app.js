@@ -1,11 +1,11 @@
-import { api, db, unwrap } from './services/api.js?v=9669147ee55a';
-import { prepareAvatar } from './features/avatar.js?v=9669147ee55a';
+import { api, db, unwrap } from './services/api.js?v=be9b80479067';
+import { prepareAvatar } from './features/avatar.js?v=be9b80479067';
 import {
   createReportPdf,
   loadReportFonts,
   loadPdfEngine,
   REPORT_DISCLAIMER,
-} from './features/report.js?v=9669147ee55a';
+} from './features/report.js?v=be9b80479067';
 import {
   QUESTIONS,
   LABELS,
@@ -21,7 +21,7 @@ import {
   validatePassword,
   calculate,
   csv,
-} from './domain/domain.js?v=9669147ee55a';
+} from './domain/domain.js?v=be9b80479067';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -456,7 +456,7 @@ function dashboard() {
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
         <div class="hero-wheel" aria-hidden="true">
-          <img src="./assets/images/logo.svg?v=9669147ee55a" alt="" />
+          <img src="./assets/images/logo.svg?v=be9b80479067" alt="" />
         </div>
       </section>
       <div class="stats-grid">
@@ -1785,10 +1785,11 @@ $('forgotBtn').addEventListener('click', () => {
 async function signOutAndShowLogin() {
   if (signingOut) return;
   signingOut = true;
+  const accessRevision = accessUI.getState().revision;
   try {
     unwrap(await db.auth.signOut({ scope: 'local' }));
     await receiveSession(null);
-    authMode('login');
+    if (accessRevision === accessUI.getState().revision) authMode('login');
     location.hash = 'iniciar-sesion';
     toast('Cerraste tu sesión en este dispositivo.');
   } catch (e) {
