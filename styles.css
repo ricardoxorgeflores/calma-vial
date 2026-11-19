@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'Roboto';
-  src: url('./vendor/fonts/Roboto.ttf?v=e2dd13250420') format('truetype');
+  src: url('./vendor/fonts/Roboto.ttf?v=e4a33fd1fdee') format('truetype');
   font-weight: 100 900;
   font-display: swap;
 }
@@ -585,6 +585,13 @@ small {
   height: 100svh;
   display: flex;
   flex-direction: column;
+}
+
+@media (min-width: 701px) {
+  .sidebar {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 .sidebar .brand {

@@ -1,4 +1,4 @@
-import { recommendations, FACTORS } from './domain.js?v=e2dd13250420';
+import { recommendations, FACTORS } from './domain.js?v=e4a33fd1fdee';
 
 export const REPORT_DISCLAIMER =
   'Este informe es educativo y orientativo. No es un diagnóstico, no evalúa la aptitud para conducir y no sustituye una valoración médica o psicológica. Si el malestar persiste, afecta tu vida cotidiana o te preocupa, busca valoración de un profesional de salud. No tomes decisiones clínicas basándote solo en estos resultados.';
@@ -8,8 +8,8 @@ let fontsPromise;
 export function loadReportFonts() {
   fontsPromise ||= Promise.all(
     [
-      new URL('./vendor/fonts/Roboto-Regular.ttf?v=e2dd13250420', import.meta.url),
-      new URL('./vendor/fonts/Roboto-Bold.ttf?v=e2dd13250420', import.meta.url),
+      new URL('./vendor/fonts/Roboto-Regular.ttf?v=e4a33fd1fdee', import.meta.url),
+      new URL('./vendor/fonts/Roboto-Bold.ttf?v=e4a33fd1fdee', import.meta.url),
     ].map(async (url) => {
       const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error('No se pudo cargar la tipografía del informe.');

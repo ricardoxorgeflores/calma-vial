@@ -1,6 +1,6 @@
-import { api, db, unwrap } from './api.js?v=e2dd13250420';
-import { prepareAvatar } from './avatar.js?v=e2dd13250420';
-import { createReportPdf, loadReportFonts, REPORT_DISCLAIMER } from './report.js?v=e2dd13250420';
+import { api, db, unwrap } from './api.js?v=e4a33fd1fdee';
+import { prepareAvatar } from './avatar.js?v=e4a33fd1fdee';
+import { createReportPdf, loadReportFonts, REPORT_DISCLAIMER } from './report.js?v=e4a33fd1fdee';
 import {
   QUESTIONS,
   LABELS,
@@ -16,7 +16,7 @@ import {
   validatePassword,
   calculate,
   csv,
-} from './domain.js?v=e2dd13250420';
+} from './domain.js?v=e4a33fd1fdee';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -450,7 +450,7 @@ function dashboard() {
           </p>
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
-        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=e2dd13250420" alt="" /></div>
+        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=e4a33fd1fdee" alt="" /></div>
       </section>
       <div class="stats-grid">
         <article class="stat-card">
@@ -1396,8 +1396,13 @@ function navigate() {
   if (!state.profile) view = 'perfil';
   if (['admin', 'sistema'].includes(view) && state.profile?.rol !== 'admin') view = 'inicio';
   if (state.view === 'calma' && view !== 'calma') stopBreathing();
+  const viewChanged = state.view !== view;
   state.view = view;
   render();
+  if (viewChanged) {
+    window.scrollTo?.(0, 0);
+    $('page').focus?.({ preventScroll: true });
+  }
   if (view === 'admin' && !state.admin) loadAdmin();
   if (view === 'avisos') void loadNotices();
   if (view === 'informe') void refreshReport();
