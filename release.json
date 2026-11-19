@@ -1,10 +1,12 @@
 {
-  "version": "2.0.0",
-  "release": "be9b80479067",
+  "version": "2.1.0",
+  "release": "13507858173f",
   "files": [
     "index.html",
+    "css/tokens.css",
     "css/base.css",
     "css/auth.css",
+    "css/motion.css",
     "js/bootstrap.js",
     "js/app.js",
     "js/auth/auth-ui.js",
@@ -15,7 +17,7 @@
     "js/features/avatar.js",
     "js/features/report.js",
     "assets/images/logo.svg",
-    "assets/images/car-hero.svg",
+    "assets/images/calma-car.png",
     "assets/fonts/Roboto.ttf",
     "assets/fonts/Roboto-Regular.ttf",
     "assets/fonts/Roboto-Bold.ttf",

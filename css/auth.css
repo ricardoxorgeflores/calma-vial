@@ -13,7 +13,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(500px, 1fr);
   min-height: 100dvh;
-  background: #faf9fd;
+  background: var(--access-surface);
   padding: 18px;
   gap: 0;
 }
@@ -25,7 +25,7 @@
   min-height: 760px;
   padding: 42px 44px 30px;
   color: #fff;
-  background: #54417c;
+  background: var(--story-fallback);
   display: flex;
   flex-direction: column;
 }
@@ -36,15 +36,62 @@
 .hero-visual {
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: -1;
   pointer-events: none;
-  background: url('../assets/images/car-hero.svg?v=be9b80479067') center bottom / cover;
+  background:
+    radial-gradient(ellipse at 80% 46%, #c6aee840, transparent 53%),
+    linear-gradient(150deg, #73628e 0%, #64507f 44%, #30213f 100%);
+}
+.hero-visual::before {
+  content: '';
+  position: absolute;
+  width: 130%;
+  height: 28%;
+  left: -15%;
+  bottom: 13%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #d9c3f64a, #b899d918 55%, transparent 70%);
+  transform: rotate(-9deg);
 }
 .hero-visual::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #2114388c 0%, #34224428 58%, #251a42a8 100%);
+  background: linear-gradient(180deg, #281d3b10 50%, #251a3480 100%);
+  z-index: 2;
+}
+.hero-orbit {
+  position: absolute;
+  width: 92%;
+  aspect-ratio: 1;
+  right: -31%;
+  top: 16%;
+  border: 1px solid #d6c5f030;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 48px #d6c5f008,
+    0 0 0 96px #d6c5f004;
+}
+.hero-road {
+  position: absolute;
+  width: 140%;
+  height: 110px;
+  bottom: 16%;
+  left: -20%;
+  border-top: 1px solid #dccbf13b;
+  border-bottom: 1px solid #dccbf11c;
+  background: linear-gradient(180deg, #21162f00, #21162f40);
+  transform: rotate(-8deg);
+}
+.hero-car {
+  position: absolute;
+  z-index: 1;
+  bottom: 16.5%;
+  left: 2%;
+  width: 96%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 14px #1c122956);
 }
 .auth-story .brand {
   color: #fff;
@@ -203,7 +250,7 @@
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.035em;
-  color: #29223e;
+  color: var(--access-ink);
   margin: 0 0 12px;
 }
 .auth-main .subtle {
@@ -450,8 +497,8 @@
 }
 .auth-content .button.primary {
   min-height: 46px;
-  background: #78549c;
-  border: 1px solid #78549c;
+  background: var(--access-accent);
+  border: 1px solid var(--access-accent);
   color: white;
   font-size: 13px;
   border-radius: 9px;
@@ -462,7 +509,7 @@
     transform 0.16s;
 }
 .auth-content .button.primary:hover:not(:disabled) {
-  background: #654086;
+  background: var(--access-accent-hover);
   box-shadow: 0 5px 14px #67458228;
 }
 .auth-content button:active:not(:disabled) {
@@ -488,7 +535,7 @@
   margin-top: 17px;
 }
 .auth-content .check input {
-  accent-color: #78549c;
+  accent-color: var(--access-accent);
   margin-top: 3px;
 }
 .same-account {
@@ -574,13 +621,13 @@
     padding: 0;
   }
   .auth-story {
-    min-height: 310px;
+    min-height: 450px;
     border-radius: 0 0 25px 25px;
     padding: 26px 30px;
   }
   .story-copy {
     margin-top: 28px;
-    max-width: 65%;
+    max-width: 100%;
   }
   .auth-story h1 {
     font-size: 35px;
@@ -593,11 +640,24 @@
   .auth-story .eyebrow {
     font-size: 8px;
   }
-  .hero-visual {
-    background-position: center 70%;
-  }
   .hero-visual::after {
-    background: linear-gradient(90deg, #302045d9, #30204530);
+    background: linear-gradient(90deg, #3020452b, #30204500);
+  }
+  .hero-car {
+    width: min(86%, 430px);
+    left: 7%;
+    right: auto;
+    bottom: 12px;
+    filter: drop-shadow(0 14px 12px #1c12294d);
+  }
+  .hero-road {
+    bottom: 8%;
+    height: 70px;
+  }
+  .hero-orbit {
+    width: 75%;
+    right: -20%;
+    top: 21%;
   }
   .hero-features,
   .hero-caption,
@@ -614,13 +674,13 @@
 @media (max-width: 420px) {
   .auth-story {
     padding: 22px;
-    min-height: 290px;
+    min-height: 410px;
   }
   .auth-story h1 {
     font-size: 30px;
   }
   .story-copy {
-    max-width: 76%;
+    max-width: 100%;
   }
   .auth-main {
     padding: 23px 20px 18px;

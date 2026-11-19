@@ -1,5 +1,5 @@
-import { config } from '../config/config.js?v=be9b80479067';
-import { reportDTO } from './dto.js?v=be9b80479067';
+import { config } from '../config/config.js?v=13507858173f';
+import { reportDTO } from './dto.js?v=13507858173f';
 import {
   validateDiary,
   validateProfile,
@@ -7,7 +7,7 @@ import {
   normalizeFactor,
   DIARY_FACTORS,
   validateNotice,
-} from '../domain/domain.js?v=be9b80479067';
+} from '../domain/domain.js?v=13507858173f';
 if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 

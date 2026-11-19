@@ -1,11 +1,11 @@
-import { api, db, unwrap } from './services/api.js?v=be9b80479067';
-import { prepareAvatar } from './features/avatar.js?v=be9b80479067';
+import { api, db, unwrap } from './services/api.js?v=13507858173f';
+import { prepareAvatar } from './features/avatar.js?v=13507858173f';
 import {
   createReportPdf,
   loadReportFonts,
   loadPdfEngine,
   REPORT_DISCLAIMER,
-} from './features/report.js?v=be9b80479067';
+} from './features/report.js?v=13507858173f';
 import {
   QUESTIONS,
   LABELS,
@@ -21,7 +21,7 @@ import {
   validatePassword,
   calculate,
   csv,
-} from './domain/domain.js?v=be9b80479067';
+} from './domain/domain.js?v=13507858173f';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -456,7 +456,7 @@ function dashboard() {
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
         <div class="hero-wheel" aria-hidden="true">
-          <img src="./assets/images/logo.svg?v=be9b80479067" alt="" />
+          <img src="./assets/images/logo.svg?v=13507858173f" alt="" />
         </div>
       </section>
       <div class="stats-grid">
