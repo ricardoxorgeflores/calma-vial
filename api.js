@@ -1,4 +1,5 @@
-import { config } from './config.js?v=e945bc30e2c8';
+import { config } from './config.js?v=e2dd13250420';
+import { reportDTO } from './dto.js?v=e2dd13250420';
 import {
   validateDiary,
   validateProfile,
@@ -6,7 +7,7 @@ import {
   normalizeFactor,
   DIARY_FACTORS,
   validateNotice,
-} from './domain.js?v=e945bc30e2c8';
+} from './domain.js?v=e2dd13250420';
 if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 
@@ -108,6 +109,39 @@ const profileFields = [
 
 // Acceso compartido con Android. Filtrar por propietario complementa las políticas RLS.
 export const api = {
+  async report(userId) {
+    if (!userId) throw new Error('Inicia sesión para generar tu informe.');
+    return reportDTO(unwrap(await db.rpc('calmavial_informe', { p_usuario_id: userId })), userId);
+  },
+  async archive(type, id, restore = false) {
+    if (!['evaluaciones', 'diario'].includes(type) || !/^[1-9]\d*$/.test(String(id)))
+      throw new Error('Registro no válido.');
+    const result = unwrap(
+      await db.rpc(restore ? 'calmavial_restaurar' : 'calmavial_archivar', {
+        p_tipo: type,
+        p_id: String(id),
+      }),
+    );
+    if (result !== true) throw new Error('El servidor no confirmó el cambio del registro.');
+  },
+  async archived() {
+    const rows = unwrap(await db.rpc('calmavial_papelera'));
+    if (!Array.isArray(rows)) throw new Error('No se pudo leer la papelera de tu cuenta.');
+    return rows.map((row) => {
+      if (
+        !['evaluaciones', 'diario'].includes(row.tipo) ||
+        !/^[1-9]\d*$/.test(String(row.id)) ||
+        !Number.isFinite(Date.parse(row.archivado_en))
+      )
+        throw new Error('Registro archivado no válido.');
+      return {
+        tipo: row.tipo,
+        id: String(row.id),
+        detalle: String(row.detalle || ''),
+        archivado_en: row.archivado_en,
+      };
+    });
+  },
   async avatar(id) {
     if (!db.storage) return null;
     const bucket = db.storage.from('calmavial-avatars');

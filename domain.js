@@ -45,7 +45,7 @@ export function normalizeFactor(value) {
     value
   );
 }
-export const roleLabel = (role) => (role === 'admin' ? 'Administrador' : 'Estudiante');
+export const roleLabel = (role) => (role === 'admin' ? 'Administrador' : 'Usuario');
 
 export function validateNotice(fields) {
   const titulo = String(fields.titulo ?? '').trim();

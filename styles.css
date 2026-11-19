@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'Roboto';
-  src: url('./vendor/fonts/Roboto.ttf?v=e945bc30e2c8') format('truetype');
+  src: url('./vendor/fonts/Roboto.ttf?v=e2dd13250420') format('truetype');
   font-weight: 100 900;
   font-display: swap;
 }
@@ -2448,6 +2448,67 @@ input[aria-invalid='true'] {
 }
 
 /* 13. Respetar la preferencia de movimiento reducido */
+
+/* Estados de interacción visibles, con teclado y preferencia de movimiento reducido. */
+.button:active:not(:disabled) {
+  background: #242463;
+  color: #fff;
+  box-shadow: 0 0 0 4px #3b3b9824;
+  transform: translateY(1px) scale(0.98);
+}
+.button.ghost:hover:not(:disabled),
+.text-button:hover:not(:disabled) {
+  background: #ededfb;
+  color: var(--indigo-dark);
+}
+.text-button:active:not(:disabled),
+.icon-button:active:not(:disabled) {
+  background: #dcdcf6;
+  color: #242463;
+}
+.button[aria-busy='true'] {
+  opacity: 0.65;
+}
+.report-progress {
+  display: flex;
+  gap: 10px;
+  margin: 24px 0;
+}
+.report-progress span {
+  flex: 1;
+  height: 7px;
+  background: var(--line);
+  border-radius: 8px;
+}
+.report-progress span.complete {
+  background: var(--mint);
+}
+.report-banner {
+  border-left: 4px solid var(--mint);
+  padding: 18px 22px;
+  background: var(--mint-light);
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+.archive-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.archive-item p {
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .archive-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+}
 
 .avatar {
   overflow: hidden;

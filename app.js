@@ -1,5 +1,6 @@
-import { api, db, unwrap } from './api.js?v=e945bc30e2c8';
-import { prepareAvatar } from './avatar.js?v=e945bc30e2c8';
+import { api, db, unwrap } from './api.js?v=e2dd13250420';
+import { prepareAvatar } from './avatar.js?v=e2dd13250420';
+import { createReportPdf, loadReportFonts, REPORT_DISCLAIMER } from './report.js?v=e2dd13250420';
 import {
   QUESTIONS,
   LABELS,
@@ -15,7 +16,7 @@ import {
   validatePassword,
   calculate,
   csv,
-} from './domain.js?v=e945bc30e2c8';
+} from './domain.js?v=e2dd13250420';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -37,6 +38,13 @@ const state = {
   notices: null,
   noticeAudit: [],
   noticesError: null,
+  report: null,
+  reportBlob: null,
+  reportKey: null,
+  reportStatus: 'locked',
+  reportError: null,
+  archived: null,
+  archiveError: null,
   view: 'inicio',
   authMode: 'login',
   hydrating: false,
@@ -67,10 +75,14 @@ const titles = {
   admin: 'Administración',
   sistema: 'Arquitectura y seguridad',
   avisos: 'Avisos de la plataforma',
+  informe: 'Mi informe PDF',
+  papelera: 'Papelera',
 };
 let breathTimer, toastTimer, syncChannel, modalTrigger;
 let signingOut = false;
 let noticesRequest = 0;
+let reportRequest = 0;
+let archiveRequest = 0;
 let authPending = false,
   loginRole = null;
 
@@ -179,6 +191,7 @@ async function busy(button, action) {
   const old = button?.innerHTML;
   if (button) {
     button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
     button.textContent = 'Un momento…';
   }
   try {
@@ -186,6 +199,7 @@ async function busy(button, action) {
   } finally {
     if (button?.isConnected) {
       button.disabled = false;
+      button.removeAttribute('aria-busy');
       button.innerHTML = old;
     }
   }
@@ -291,6 +305,130 @@ function resultNote() {
 }
 
 // Vistas del espacio personal: resumen, resultados y diario.
+function reportKey() {
+  return state.evaluations
+    .map((row) => String(row.id))
+    .sort()
+    .join(',');
+}
+
+function downloadPdf(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function reportReadiness() {
+  const count = Math.min(3, state.evaluations.length);
+  const text =
+    state.reportStatus === 'ready'
+      ? 'Tu informe PDF está listo.'
+      : state.reportStatus === 'loading'
+        ? 'Preparando tu informe privado…'
+        : state.reportStatus === 'error'
+          ? 'El informe necesita volver a intentarse.'
+          : `${count} de 3 evaluaciones. Completa tres para obtener tu informe.`;
+  return `<div class="report-banner"><strong>${text}</strong><p>Resumen orientativo, recomendaciones y advertencia de valoración profesional.</p><button class="text-button" data-action="open-report">Ver mi informe</button></div>`;
+}
+
+function paintReport() {
+  const panel = $('reportPanel');
+  if (panel) panel.innerHTML = reportPanel();
+  const banner = $('historyReportStatus');
+  if (banner) banner.innerHTML = reportReadiness();
+  const modalStatus = $('modalReportStatus');
+  if (modalStatus) modalStatus.innerHTML = reportReadiness();
+}
+
+async function refreshReport(force = false) {
+  if (!state.session) return;
+  const key = reportKey();
+  if (state.evaluations.length < 3) {
+    reportRequest++;
+    state.report = null;
+    state.reportBlob = null;
+    state.reportKey = key;
+    state.reportStatus = 'locked';
+    state.reportError = null;
+    paintReport();
+    return;
+  }
+  if (!force && state.reportKey === key && ['loading', 'ready'].includes(state.reportStatus))
+    return;
+  const revision = state.revision,
+    request = ++reportRequest,
+    uid = state.session.user.id;
+  state.reportStatus = 'loading';
+  state.reportKey = key;
+  state.reportBlob = null;
+  state.reportError = null;
+  paintReport();
+  try {
+    const report = await api.report(uid);
+    const fonts = await loadReportFonts();
+    if (revision !== state.revision || request !== reportRequest || key !== reportKey()) return;
+    const pdf = createReportPdf(report, window.jspdf?.jsPDF, fonts);
+    state.report = report;
+    state.reportBlob = pdf.output('blob');
+    state.reportStatus = 'ready';
+  } catch (error) {
+    if (revision !== state.revision || request !== reportRequest) return;
+    state.reportStatus = 'error';
+    state.reportError = errorText(error);
+  }
+  paintReport();
+}
+
+function reportPanel() {
+  const count = Math.min(3, state.evaluations.length);
+  const progress = `<div class="report-progress" aria-label="${count} de 3 evaluaciones">${[1, 2, 3].map((n) => `<span class="${count >= n ? 'complete' : ''}"></span>`).join('')}</div>`;
+  const summary =
+    state.report && state.reportStatus === 'ready'
+      ? `<div class="notice safe">Preparado con tus tres evaluaciones válidas más recientes, incluidas las realizadas en la app móvil cuando estén guardadas en esta cuenta.</div><p>Promedio: <strong>${number(state.report.averages.prom_general)} / 5</strong> · ${state.report.totalEvaluations} evaluaciones válidas disponibles.</p>`
+      : '';
+  return `<span class="section-tag">SEGUIMIENTO PERSONAL</span><h2>Tu recorrido, en un informe privado</h2>${progress}<p role="status">${state.reportStatus === 'ready' ? 'Informe PDF preparado.' : state.reportStatus === 'loading' ? 'Preparando el PDF con datos confirmados por el servidor…' : state.reportStatus === 'error' ? 'No se pudo preparar el informe.' : `Necesitas 3 evaluaciones válidas y no archivadas. Actualmente hay ${state.evaluations.length} registros visibles.`}</p>${summary}${state.reportError ? `<div class="feedback" role="alert">${escape(state.reportError)}</div>` : ''}<div class="form-actions"><button class="button" data-action="download-report" ${state.reportStatus !== 'ready' ? 'disabled' : ''}>Descargar informe PDF ↓</button>${state.evaluations.length >= 3 ? '<button class="button ghost" data-action="retry-report">Actualizar informe</button>' : '<a class="button secondary" href="#evaluacion">Realizar evaluación</a>'}</div><div class="notice">${escape(REPORT_DISCLAIMER)}</div><p class="mini-note">El documento se genera en este navegador. No contiene tu diario, teléfono ni contraseña. Tú decides con quién compartirlo.</p>`;
+}
+
+function reportView() {
+  return (
+    heading(
+      'Mi informe PDF',
+      'Disponible al completar tres evaluaciones válidas guardadas en tu cuenta.',
+    ) + `<section class="card" id="reportPanel">${reportPanel()}</section>`
+  );
+}
+
+async function loadArchived() {
+  if (!state.session) return;
+  const revision = state.revision,
+    request = ++archiveRequest;
+  try {
+    const rows = await api.archived();
+    if (revision !== state.revision || request !== archiveRequest) return;
+    state.archived = rows;
+    state.archiveError = null;
+  } catch (error) {
+    if (revision !== state.revision || request !== archiveRequest) return;
+    state.archiveError = errorText(error);
+  }
+  if (state.view === 'papelera' && !$('modal').open) render();
+}
+
+function archiveView() {
+  return (
+    heading(
+      'Papelera',
+      'La eliminación lógica conserva tus registros. Puedes restaurarlos para volver a verlos en la web y la app al actualizar.',
+    ) +
+    `<section class="card">${state.archiveError ? `<div class="feedback" role="alert">${escape(state.archiveError)}</div><button class="button" data-action="refresh-archive">Volver a intentar</button>` : state.archived === null ? '<p role="status">Cargando registros archivados…</p>' : state.archived.length ? state.archived.map((row) => `<article class="archive-item"><div><span class="badge">${row.tipo === 'evaluaciones' ? 'Evaluación' : 'Diario'}</span><p>${escape(row.detalle)}</p><small>Archivado el ${date(row.archivado_en)}</small></div><button class="button ghost" data-action="restore-record" data-type="${row.tipo}" data-id="${row.id}">Restaurar</button></article>`).join('') : empty('Papelera vacía', 'Aquí aparecerán los registros que archives, sin borrarlos físicamente.')}</section>`
+  );
+}
+
 function dashboard() {
   const latest = state.evaluations[0];
   const month = new Date().toLocaleDateString('es-BO', {
@@ -312,7 +450,7 @@ function dashboard() {
           </p>
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
-        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=e945bc30e2c8" alt="" /></div>
+        <div class="hero-wheel" aria-hidden="true"><img src="./logo.svg?v=e2dd13250420" alt="" /></div>
       </section>
       <div class="stats-grid">
         <article class="stat-card">
@@ -442,75 +580,84 @@ function history() {
       'Cada evaluación es una oportunidad para conocerte mejor.',
       '<button class="button ghost" data-action="export-results">Exportar CSV ↓</button>',
     ) +
-    /* HTML */ `<section class="card">
-      <div class="toolbar">
-        <span class="subtle">${state.evaluations.length} evaluaciones en tu cuenta</span
-        ><input
-          id="historySearch"
-          type="search"
-          aria-label="Buscar evaluaciones"
-          placeholder="Buscar por fecha, vehículo o momento"
-          value="${escape(state.historySearch)}"
-        /><select id="historyFilter" aria-label="Filtrar por nivel">
-          <option value="">Todos los niveles</option>
-          ${['Bajo', 'Moderado', 'Elevado'].map((v) => /* HTML */ `<option ${state.historyFilter === v ? 'selected' : ''}>${v}</option>`).join('')}
-        </select>
-      </div>
-      ${
-        filtered.length
-          ? /* HTML */ `<div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Total</th>
-                    <th>Nivel orientativo</th>
-                    <th>Momento</th>
-                    <th>Detalle</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${filtered
-                    .map(
-                      (e) =>
-                        /* HTML */ `<tr>
-                          <td>${date(e.creado_en)}</td>
-                          <td><strong>${escape(e.total)}</strong> / 70</td>
-                          <td>${badge(e.nivel)}</td>
-                          <td>${escape(e.momento || '—')}</td>
-                          <td>
-                            <button
-                              class="text-button"
-                              data-action="result"
-                              data-id="${escape(e.id)}"
-                            >
-                              Ver resultado ↗</button
-                            ><button
-                              class="text-button danger-text"
-                              data-action="delete-evaluation"
-                              data-id="${escape(e.id)}"
-                              aria-label="Eliminar evaluación del ${date(e.creado_en)}"
-                            >
-                              Eliminar
-                            </button>
-                          </td>
-                        </tr>`,
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-            </div>`
-          : empty(
-              state.evaluations.length
-                ? 'Sin resultados para este nivel'
-                : 'Aún no tienes evaluaciones',
-              state.evaluations.length
-                ? 'Cambia el filtro para ver el resto de tu historial.'
-                : 'Las que realices aquí y en tu app móvil aparecerán en este historial.',
-              '<a class="button secondary" href="#evaluacion">Nueva evaluación ↗</a>',
-            )
-      }${resultNote()}
-    </section>`
+    /* HTML */ `<div id="historyReportStatus">${reportReadiness()}</div>
+      <section class="card">
+        <div class="toolbar">
+          <span class="subtle">${state.evaluations.length} evaluaciones en tu cuenta</span
+          ><input
+            id="historySearch"
+            type="search"
+            aria-label="Buscar evaluaciones"
+            placeholder="Buscar por fecha, vehículo o momento"
+            value="${escape(state.historySearch)}"
+          /><select id="historyFilter" aria-label="Filtrar por nivel">
+            <option value="">Todos los niveles</option>
+            ${['Bajo', 'Moderado', 'Elevado'].map((v) => /* HTML */ `<option ${state.historyFilter === v ? 'selected' : ''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        ${
+          filtered.length
+            ? /* HTML */ `<div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Total</th>
+                      <th>Nivel orientativo</th>
+                      <th>Momento</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${filtered
+                      .map(
+                        (e) =>
+                          /* HTML */ `<tr>
+                            <td>${date(e.creado_en)}</td>
+                            <td><strong>${escape(e.total)}</strong> / 70</td>
+                            <td>${badge(e.nivel)}</td>
+                            <td>${escape(e.momento || '—')}</td>
+                            <td>
+                              <button
+                                class="text-button"
+                                data-action="result"
+                                data-id="${escape(e.id)}"
+                              >
+                                Ver resultado ↗</button
+                              ><button
+                                class="text-button danger-text"
+                                data-action="delete-evaluation"
+                                data-id="${escape(e.id)}"
+                                aria-label="Eliminar evaluación del ${date(e.creado_en)}"
+                              >
+                                Eliminar físicamente
+                              </button>
+                              <button
+                                class="text-button"
+                                data-action="archive-record"
+                                data-type="evaluaciones"
+                                data-id="${escape(e.id)}"
+                              >
+                                Archivar
+                              </button>
+                            </td>
+                          </tr>`,
+                      )
+                      .join('')}
+                  </tbody>
+                </table>
+              </div>`
+            : empty(
+                state.evaluations.length
+                  ? 'Sin resultados para este nivel'
+                  : 'Aún no tienes evaluaciones',
+                state.evaluations.length
+                  ? 'Cambia el filtro para ver el resto de tu historial.'
+                  : 'Las que realices aquí y en tu app móvil aparecerán en este historial.',
+                '<a class="button secondary" href="#evaluacion">Nueva evaluación ↗</a>',
+              )
+        }${resultNote()}
+      </section>`
   );
 }
 
@@ -568,6 +715,14 @@ function journal() {
                           data-id="${escape(row.id)}"
                         >
                           Eliminar
+                        </button>
+                        <button
+                          class="text-button"
+                          data-action="archive-record"
+                          data-type="diario"
+                          data-id="${escape(row.id)}"
+                        >
+                          Archivar
                         </button>
                       </div>
                     </article>`,
@@ -775,6 +930,7 @@ function resultModal(ev) {
         </section>
         ${top.length ? `<section class="result-advice"><h3>Situaciones que más enojo te generan</h3><ul>${top.map((q) => `<li>${escape(q.text)} <strong>${q.value}/5</strong></li>`).join('')}</ul></section>` : ''}
         ${resultNote()}
+        <div id="modalReportStatus">${reportReadiness()}</div>
         <div class="form-actions">
           <button class="button secondary" data-action="result-calm">Tomarme una pausa ↗</button
           ><button class="button ghost" data-action="copy-result" data-id="${escape(ev.id)}">
@@ -1086,11 +1242,11 @@ function systemOverview() {
     <section class="card">
       <div class="card-title"><h2>Una cuenta, dos aplicaciones</h2><span class="badge">Web · Android</span></div>
       <ol class="architecture-flow"><li><strong>Interfaz</strong><span>HTML, CSS y JavaScript · GitHub Pages</span></li><li><strong>Autenticación y API</strong><span>Supabase Auth · HTTPS · sesión de usuario</span></li><li><strong>Persistencia</strong><span>PostgreSQL · claves foráneas · políticas RLS</span></li></ol>
-      <p class="subtle">El SDK envía y recibe JSON. Android consulta el mismo proyecto y las mismas tablas. Realtime y la actualización periódica permiten refrescar la web.</p>
+      <p class="subtle">El SDK envía y recibe JSON. Los DTO limitan campos, validan fechas e identidad y recalculan los resultados del informe. Android consulta el mismo proyecto y las mismas tablas. Realtime y la actualización periódica permiten refrescar la web.</p>
     </section>
     <div class="insights-grid">
-      <section class="card"><h2>Identidad y permisos</h2><dl class="data-status-list"><dt>Estudiante</dt><dd>Consulta y administra sus evaluaciones, diario y perfil.</dd><dt>Administrador</dt><dd>Consulta perfiles, indicadores y evaluaciones autorizadas. El diario sigue siendo privado.</dd><dt>Control de acceso</dt><dd>Supabase Auth valida la cuenta. PostgreSQL verifica el propietario y el rol; elegir un botón no concede permisos.</dd><dt>Contraseñas</dt><dd>Supabase Auth almacena hashes bcrypt en <code>auth.users.encrypted_password</code>. La web no lee hashes ni guarda contraseñas en las tablas públicas.</dd></dl></section>
-      <section class="card"><h2>Integridad de los registros</h2><dl class="data-status-list"><dt>Relaciones</dt><dd><code>perfiles.id</code> identifica la cuenta. <code>evaluaciones.usuario_id</code> y <code>diario.usuario_id</code> relacionan sus registros.</dd><dt>Evaluaciones</dt><dd><code>guardar_evaluacion</code> valida 14 respuestas de 1 a 5, calcula el resultado y reconoce solicitudes repetidas mediante su identificador.</dd><dt>Eliminación</dt><dd>Física, con confirmación y control de propietario. El registro eliminado deja de estar disponible en ambas aplicaciones al actualizar.</dd><dt>Guardado</dt><dd>El éxito se muestra después de la respuesta del servidor. Ante un tiempo de espera agotado, consulta el historial antes de repetir.</dd></dl></section>
+      <section class="card"><h2>Identidad y permisos</h2><dl class="data-status-list"><dt>Usuario</dt><dd>Consulta y administra sus evaluaciones, diario y perfil.</dd><dt>Administrador</dt><dd>Consulta perfiles, indicadores y evaluaciones autorizadas. El diario sigue siendo privado.</dd><dt>Control de acceso</dt><dd>Supabase Auth valida la cuenta. PostgreSQL verifica el propietario y el rol; elegir un botón no concede permisos.</dd><dt>Contraseñas</dt><dd>Supabase Auth almacena hashes bcrypt en <code>auth.users.encrypted_password</code>. La web no lee hashes ni guarda contraseñas en las tablas públicas.</dd></dl></section>
+      <section class="card"><h2>Integridad de los registros</h2><dl class="data-status-list"><dt>Relaciones</dt><dd><code>perfiles.id</code> identifica la cuenta. <code>evaluaciones.usuario_id</code> y <code>diario.usuario_id</code> relacionan sus registros.</dd><dt>Evaluaciones</dt><dd><code>guardar_evaluacion</code> valida 14 respuestas de 1 a 5, calcula el resultado y reconoce solicitudes repetidas mediante su identificador.</dd><dt>Eliminación</dt><dd>Física con confirmación y permiso de propietario; lógica mediante archivo y restauración desde Papelera. Las políticas ocultan lo archivado en web y Android al actualizar.</dd><dt>Guardado</dt><dd>El éxito se muestra después de la respuesta del servidor. Ante un tiempo de espera agotado, consulta el historial antes de repetir.</dd></dl></section>
     </div>
     <section class="card"><h2>Comprobación durante la exposición</h2><ol class="demo-steps"><li>Intenta acceder con un correo incorrecto y una contraseña corta.</li><li>Selecciona un rol distinto al de tu cuenta y comprueba el rechazo.</li><li>Guarda una evaluación y abre el historial.</li><li>Crea y edita una reflexión de prueba; revisa la escritura confirmada.</li><li>Comprueba el registro en Supabase y después en Android con tu cuenta.</li><li>Cierra la sesión y verifica que ya no aparecen datos privados.</li></ol><button class="button" data-action="data-status">Consultar estado de mis datos</button><p class="mini-note">Esta pantalla describe la implementación; no certifica pruebas en un teléfono ni sustituye una auditoría de seguridad. Las pruebas y sus límites se documentan en VERIFICACION.md.</p></section>`
   );
@@ -1152,7 +1308,7 @@ function admin() {
         <div class="card-title">
           <div>
             <h2>Comunidad Calma Vial</h2>
-            <p class="subtle">Estudiantes y administradores · acceso según permisos</p>
+            <p class="subtle">Usuarios y administradores · acceso según permisos</p>
           </div>
         </div>
         <div class="toolbar">
@@ -1244,6 +1400,8 @@ function navigate() {
   render();
   if (view === 'admin' && !state.admin) loadAdmin();
   if (view === 'avisos') void loadNotices();
+  if (view === 'informe') void refreshReport();
+  if (view === 'papelera') void loadArchived();
 }
 
 function render() {
@@ -1294,6 +1452,8 @@ function render() {
     admin,
     sistema: systemOverview,
     avisos: notices,
+    informe: reportView,
+    papelera: archiveView,
   }[state.view]();
   paintBars();
   paintAvatar();
@@ -1331,6 +1491,7 @@ async function loadData({ quiet = false } = {}) {
     $('syncState').title =
       `Última lectura: ${new Date(state.lastSync).toLocaleString('es-BO', { timeZone: 'America/La_Paz' })}`;
     $('syncState').classList.remove('error-state');
+    void refreshReport();
     if (Date.now() - state.avatarCheckedAt > 30 * 60 * 1000) void loadAvatar();
     return true;
   } catch (e) {
@@ -1386,6 +1547,15 @@ async function receiveSession(session) {
   state.noticeAudit = [];
   state.noticesError = null;
   state.lastSync = 0;
+  reportRequest++;
+  archiveRequest++;
+  state.report = null;
+  state.reportBlob = null;
+  state.reportKey = null;
+  state.reportStatus = 'locked';
+  state.reportError = null;
+  state.archived = null;
+  state.archiveError = null;
   state.lastWrite = null;
   state.historySearch = '';
   state.adminSearch = '';
@@ -1840,6 +2010,98 @@ document.addEventListener('submit', async (event) => {
 document.addEventListener('click', async (event) => {
   const target = event.target.closest('[data-action]');
   if (!target || target.disabled) return;
+  if (target.dataset.action === 'open-report') {
+    closeModal();
+    location.hash = 'informe';
+    navigate();
+    return;
+  }
+  if (target.dataset.action === 'retry-report') {
+    if (state.reportStatus === 'loading') return;
+    await refreshReport(true);
+    return;
+  }
+  if (target.dataset.action === 'download-report') {
+    if (state.reportStatus !== 'ready' || !state.reportBlob) return;
+    downloadPdf(state.reportBlob, `CalmaVial-informe-${new Date().toISOString().slice(0, 10)}.pdf`);
+    return;
+  }
+  if (target.dataset.action === 'admin-report' && state.profile?.rol === 'admin' && state.admin) {
+    const profile = state.admin.profiles.find((row) => String(row.id) === target.dataset.id);
+    if (!profile) return;
+    const revision = state.revision;
+    await busy(target, async () => {
+      try {
+        const report = await api.report(profile.id);
+        const fonts = await loadReportFonts();
+        if (revision !== state.revision || state.profile?.rol !== 'admin') return;
+        const pdf = createReportPdf(report, window.jspdf?.jsPDF, fonts);
+        downloadPdf(
+          pdf.output('blob'),
+          `CalmaVial-informe-usuario-${new Date().toISOString().slice(0, 10)}.pdf`,
+        );
+        toast('Informe generado con las evaluaciones autorizadas.');
+      } catch (error) {
+        if (revision === state.revision) toast(errorText(error), true);
+      }
+    });
+    return;
+  }
+  if (target.dataset.action === 'refresh-archive') {
+    await loadArchived();
+    return;
+  }
+  if (target.dataset.action === 'archive-record') {
+    const type = target.dataset.type,
+      id = target.dataset.id;
+    const rows = type === 'evaluaciones' ? state.evaluations : type === 'diario' ? state.diary : [];
+    if (!rows.some((row) => String(row.id) === id)) return;
+    openModal(
+      '¿Archivar este registro?',
+      `<p>Se ocultará del historial habitual de la web y de Android al actualizar. No se borrará: podrás restaurarlo desde Papelera.</p><div id="archiveFeedback" class="feedback" role="alert" hidden></div><div class="form-actions"><button class="button ghost" data-action="close-modal">Conservar</button><button class="button" data-action="confirm-archive" data-type="${escape(type)}" data-id="${escape(id)}">Sí, archivar</button></div>`,
+    );
+    return;
+  }
+  if (target.dataset.action === 'confirm-archive' || target.dataset.action === 'restore-record') {
+    if (!state.session) return;
+    const revision = state.revision,
+      type = target.dataset.type,
+      id = target.dataset.id;
+    const restoring = target.dataset.action === 'restore-record';
+    await busy(target, async () => {
+      try {
+        await api.archive(type, id, restoring);
+        if (revision !== state.revision) return;
+        confirmWrite(type, id, restoring ? 'Restaurado' : 'Archivado');
+        if (restoring)
+          state.archived = (state.archived || []).filter(
+            (row) => !(row.id === id && row.tipo === type),
+          );
+        else {
+          state.archived = null;
+          if (type === 'evaluaciones')
+            state.evaluations = state.evaluations.filter((row) => String(row.id) !== id);
+          if (type === 'diario') state.diary = state.diary.filter((row) => String(row.id) !== id);
+        }
+        state.admin = null;
+        closeModal();
+        void refreshReport();
+        render();
+        toast(
+          restoring
+            ? 'Registro restaurado.'
+            : 'Registro archivado; puedes restaurarlo desde Papelera.',
+        );
+        void loadData({ quiet: true });
+      } catch (error) {
+        if (revision === state.revision) {
+          if (restoring) toast(errorText(error), true);
+          else feedback('archiveFeedback', errorText(error));
+        }
+      }
+    });
+    return;
+  }
   if (target.dataset.action === 'refresh-notices') {
     await loadNotices();
     return;
@@ -1973,7 +2235,8 @@ document.addEventListener('click', async (event) => {
       const summary = adminSummary(rows);
       openModal(
         'Actividad de la cuenta',
-        `<dl class="data-status-list"><dt>Correo</dt><dd>${escape(p.correo)}</dd><dt>Teléfono</dt><dd>${escape(p.telefono || 'No indicado')}</dd><dt>Usuario</dt><dd>${escape(p.usuario || 'No indicado')}</dd><dt>Registro</dt><dd>${date(p.creado_en)}</dd></dl>` +
+        `<div class="form-actions"><button class="button" data-action="admin-report" data-id="${escape(p.id)}" ${rows.length < 3 ? 'disabled' : ''}>Generar informe PDF del usuario</button></div>` +
+          `<dl class="data-status-list"><dt>Correo</dt><dd>${escape(p.correo)}</dd><dt>Teléfono</dt><dd>${escape(p.telefono || 'No indicado')}</dd><dt>Usuario</dt><dd>${escape(p.usuario || 'No indicado')}</dd><dt>Registro</dt><dd>${date(p.creado_en)}</dd></dl>` +
           `<div class="profile-summary"><span class="avatar">${escape(p.nombres?.slice(0, 2) || 'CV')}</span><div><h3>${escape(p.nombres)} ${escape(p.apellido_paterno)}</h3><p>${roleLabel(p.rol)} · ${rows.length} evaluaciones</p></div></div>${rows.length ? bars(summary.factors) + `<div class="table-wrap"><table class="activity-table"><thead><tr><th>Fecha</th><th>Total</th><th>Promedio</th><th>Nivel orientativo</th></tr></thead><tbody>${rows.map((e) => `<tr><td>${date(e.creado_en)}</td><td>${Number(e.total)}/70</td><td>${number(e.prom_general)}/5</td><td>${badge(e.nivel)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="subtle">Esta cuenta aún no tiene evaluaciones.</p>'}${resultNote()}`,
       );
       return;
@@ -1994,6 +2257,7 @@ document.addEventListener('click', async (event) => {
           if (actionRevision !== state.revision) return;
           confirmWrite('evaluaciones', id, 'Eliminado');
           state.evaluations = state.evaluations.filter((row) => String(row.id) !== String(id));
+          void refreshReport();
           state.admin = null;
           closeModal();
           render();
@@ -2173,6 +2437,7 @@ document.addEventListener('click', async (event) => {
           location.hash = 'historial';
           navigate();
           resultModal(saved);
+          void refreshReport();
           toast('Evaluación guardada en tu cuenta.');
           void loadData({ quiet: true });
         } catch (e) {

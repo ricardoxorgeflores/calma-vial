@@ -14,10 +14,11 @@
       content="Tu espacio para conocer tus emociones al conducir. Evaluaciones DAS, diario y modo calma, conectados a tu app Calma Vial."
     />
     <title>Calma Vial · Tu espacio para conducir en calma</title>
-    <link rel="icon" href="./logo.svg?v=e945bc30e2c8" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=e945bc30e2c8" />
-    <script src="./vendor/supabase.js?v=e945bc30e2c8" defer></script>
-    <script type="module" src="./bootstrap.js?v=e945bc30e2c8"></script>
+    <link rel="icon" href="./logo.svg?v=e2dd13250420" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=e2dd13250420" />
+    <script src="./vendor/supabase.js?v=e2dd13250420" defer></script>
+    <script src="./vendor/jspdf.umd.min.js?v=e2dd13250420" defer></script>
+    <script type="module" src="./bootstrap.js?v=e2dd13250420"></script>
   </head>
   <body>
     <a class="skip" href="#main">Saltar al contenido</a>
@@ -25,7 +26,7 @@
     <div id="authScreen" class="auth-screen">
       <aside class="auth-story">
         <a class="brand light" href="#"
-          ><img src="./logo.svg?v=e945bc30e2c8" alt="" width="48" height="48" /><span
+          ><img src="./logo.svg?v=e2dd13250420" alt="" width="48" height="48" /><span
             >Calma Vial<small>UN VIAJE MÁS TRANQUILO</small></span
           ></a
         >
@@ -100,7 +101,7 @@
               data-value="usuario"
               aria-pressed="false"
             >
-              ◉ Estudiante
+              ◉ Usuario
             </button>
             <button type="button" data-action="login-role" data-value="admin" aria-pressed="false">
               ▦ Administrador
@@ -206,7 +207,7 @@
     <div id="appScreen" class="app-shell" hidden>
       <aside class="sidebar">
         <a href="#inicio" class="brand"
-          ><img src="./logo.svg?v=e945bc30e2c8" width="43" height="43" alt="" /><span
+          ><img src="./logo.svg?v=e2dd13250420" width="43" height="43" alt="" /><span
             >Calma Vial<small>TU ESPACIO PERSONAL</small></span
           ></a
         ><span class="nav-label">MI CAMINO</span>
@@ -216,6 +217,8 @@
           ><a href="#historial" data-view="historial"><span>◷</span> Mis resultados</a
           ><a href="#diario" data-view="diario"><span>▧</span> Mi diario</a
           ><a href="#calma" data-view="calma"><span>❋</span> Modo calma</a
+          ><a href="#informe" data-view="informe"><span>▥</span> Mi informe PDF</a
+          ><a href="#papelera" data-view="papelera"><span>↺</span> Papelera</a
           ><a href="#avisos" data-view="avisos"><span>▣</span> Avisos</a
           ><a href="#admin" data-view="admin" id="adminNav" hidden><span>▦</span> Administración</a>
         </nav>
@@ -227,8 +230,7 @@
           <a href="#perfil" data-view="perfil" class="profile-link"
             ><span class="avatar" id="userAvatar">CV</span
             ><span
-              ><strong id="userName">Mi cuenta</strong
-              ><small id="accountRole">Estudiante</small></span
+              ><strong id="userName">Mi cuenta</strong><small id="accountRole">Usuario</small></span
             ><span>↗</span></a
           ><button id="logoutBtn" class="logout">Cerrar sesión ↗</button>
         </div>
