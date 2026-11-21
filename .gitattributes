@@ -1,2 +1,4 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Conservar el formato Prettier también al clonar y empaquetar en Windows.
+* text=auto eol=lf
+*.png binary
+*.ttf binary
