@@ -1,8 +1,8 @@
-import { escapeHtml as e, displayDate as date, displayName } from '../ui/format.js?v=0af7c1752fca';
-import { icon } from '../ui/icons.js?v=0af7c1752fca';
-import { THREAD_STATES, THREAD_TYPES } from '../domain/management.js?v=0af7c1752fca';
-import { QUESTIONS, LABELS } from '../domain/domain.js?v=0af7c1752fca';
-import { evolutionChart } from './evolution.js?v=0af7c1752fca';
+import { escapeHtml as e, displayDate as date, displayName } from '../ui/format.js?v=4aad031f6e83';
+import { icon } from '../ui/icons.js?v=4aad031f6e83';
+import { THREAD_STATES, THREAD_TYPES } from '../domain/management.js?v=4aad031f6e83';
+import { QUESTIONS, LABELS } from '../domain/domain.js?v=4aad031f6e83';
+import { evolutionChart } from './evolution.js?v=4aad031f6e83';
 
 export function inboxView(model, admin) {
   const rows = (model.items || []).filter((row) =>

@@ -39,8 +39,8 @@
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 80% 46%, #c6aee840, transparent 53%),
-    linear-gradient(150deg, #73628e 0%, #64507f 44%, #30213f 100%);
+    radial-gradient(ellipse at 80% 46%, #aee8e240, transparent 53%),
+    linear-gradient(150deg, #628e8a 0%, #507f7a 44%, #213f3c 100%);
 }
 .hero-visual::before {
   content: '';
@@ -50,14 +50,14 @@
   left: -15%;
   bottom: 13%;
   border-radius: 50%;
-  background: radial-gradient(ellipse, #d9c3f64a, #b899d918 55%, transparent 70%);
+  background: radial-gradient(ellipse, #c3f6f14a, #99d9d318 55%, transparent 70%);
   transform: rotate(-9deg);
 }
 .hero-visual::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #281d3b10 50%, #251a3480 100%);
+  background: linear-gradient(180deg, #1d3b3810 50%, #1a343180 100%);
   z-index: 2;
 }
 .hero-orbit {
@@ -66,11 +66,11 @@
   aspect-ratio: 1;
   right: -31%;
   top: 16%;
-  border: 1px solid #d6c5f030;
+  border: 1px solid #c5f0ec30;
   border-radius: 50%;
   box-shadow:
-    0 0 0 48px #d6c5f008,
-    0 0 0 96px #d6c5f004;
+    0 0 0 48px #c5f0ec08,
+    0 0 0 96px #c5f0ec04;
 }
 .hero-road {
   position: absolute;
@@ -78,9 +78,9 @@
   height: 110px;
   bottom: 16%;
   left: -20%;
-  border-top: 1px solid #dccbf13b;
-  border-bottom: 1px solid #dccbf11c;
-  background: linear-gradient(180deg, #21162f00, #21162f40);
+  border-top: 1px solid #cbf1ed3b;
+  border-bottom: 1px solid #cbf1ed1c;
+  background: linear-gradient(180deg, #162f2d00, #162f2d40);
   transform: rotate(-8deg);
 }
 .hero-car {
@@ -91,7 +91,7 @@
   width: 96%;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 24px 14px #1c122956);
+  filter: drop-shadow(0 24px 14px #12292756);
 }
 .auth-story .brand {
   color: #fff;
@@ -103,7 +103,7 @@
   border-radius: 13px;
 }
 .auth-story .brand small {
-  color: #e9e2fc;
+  color: #e3fbf9;
   font-size: 9px;
   letter-spacing: 0.19em;
   margin-top: 6px;
@@ -124,7 +124,7 @@
   content: '';
   width: 20px;
   height: 1px;
-  background: #d6c8ed;
+  background: #c8ede9;
 }
 .auth-story h1 {
   font-size: clamp(42px, 4.2vw, 67px);
@@ -134,13 +134,13 @@
   margin: 24px 0;
 }
 .auth-story h1 em {
-  color: #e5d6fc;
+  color: #d8faf7;
   font-style: normal;
 }
 .story-copy > p {
   font-size: 15px;
   line-height: 1.8;
-  color: #f3edff;
+  color: #effdfc;
   max-width: 345px;
   margin: 0;
 }
@@ -156,7 +156,7 @@
   gap: 7px;
 }
 .hero-features b {
-  color: #e3c9ff;
+  color: #cff9f5;
   font-weight: 400;
   font-size: 10px;
 }
@@ -185,7 +185,7 @@
 }
 .hero-caption small {
   display: block;
-  color: #e9dff8;
+  color: #dff8f6;
   font-size: 11px;
   margin-top: 6px;
 }
@@ -194,7 +194,7 @@
   justify-content: space-between;
   gap: 15px;
   font-size: 10px;
-  color: #e0d4f0;
+  color: #d4f0ed;
   border-top: 1px solid #ffffff30;
   margin-top: 28px;
   padding-top: 20px;
@@ -214,7 +214,7 @@
   align-items: center;
   gap: 16px;
   font-size: 9px;
-  color: #77718a;
+  color: #6e8d8a;
   letter-spacing: 0.08em;
 }
 .online-dot {
@@ -239,7 +239,7 @@
 }
 .section-tag {
   display: inline-block;
-  color: #6e58a0;
+  color: #58a099;
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -256,7 +256,7 @@
 .auth-main .subtle {
   font-size: 13px;
   line-height: 1.7;
-  color: #797386;
+  color: #6e8b88;
   margin-bottom: 25px;
 }
 .access-roles {
@@ -273,9 +273,9 @@
   padding: 14px 12px;
   text-align: left;
   background: #fff;
-  border: 1px solid #e1dce9;
+  border: 1px solid #dce9e8;
   border-radius: 12px;
-  color: #655c78;
+  color: #5c7875;
   cursor: pointer;
   transition:
     background 0.16s,
@@ -297,7 +297,7 @@
 }
 .access-roles button small {
   display: block;
-  color: #8b829a;
+  color: #809c99;
   font-size: 10px;
   font-weight: 400;
   margin-top: 5px;
@@ -305,7 +305,7 @@
 .access-roles button i {
   font-style: normal;
   font-size: 11px;
-  border: 1px solid #d7d1e2;
+  border: 1px solid #d1e2e0;
   width: 17px;
   height: 17px;
   border-radius: 50%;
@@ -316,25 +316,25 @@
   flex-shrink: 0;
 }
 .access-roles button:hover {
-  border-color: #9679bf;
-  background: #f2edf9;
-  box-shadow: 0 4px 12px #59457910;
+  border-color: #79bfb8;
+  background: #edf9f8;
+  box-shadow: 0 4px 12px #45797410;
   transform: translateY(-1px);
 }
 .access-roles button[aria-pressed='true'] {
-  border-color: #8c6bb8;
-  background: #eee7f7;
-  color: #65428d;
-  box-shadow: 0 0 0 1px #8c6bb826;
+  border-color: #6bb8b0;
+  background: #e7f7f5;
+  color: #428d85;
+  box-shadow: 0 0 0 1px #6bb8b026;
 }
 .access-roles button[aria-pressed='true'] i {
-  background: #79569f;
+  background: #569f98;
   color: #fff;
-  border-color: #79569f;
+  border-color: #569f98;
 }
 .auth-tabs {
   display: flex;
-  background: #eeebf3;
+  background: #ebf3f2;
   padding: 4px;
   border: none;
   border-radius: 10px;
@@ -345,7 +345,7 @@
   flex: 1;
   background: transparent;
   border: 0;
-  color: #82768f;
+  color: #74918e;
   font-size: 12px;
   padding: 10px;
   border-radius: 7px;
@@ -356,28 +356,28 @@
     box-shadow 0.16s;
 }
 .auth-tabs button:hover {
-  background: #e0d6ec;
-  color: #513f70;
+  background: #d6ecea;
+  color: #3f706b;
 }
 .auth-tabs button[aria-selected='true'] {
   background: #fff;
-  color: #5f437e;
-  box-shadow: 0 2px 5px #34254412;
+  color: #437e78;
+  box-shadow: 0 2px 5px #25444112;
 }
 .auth-content form > label,
 .auth-content .label-row label,
 #confirmPassWrap > label {
   font-size: 12px;
-  color: #3c344c;
+  color: #344c4a;
   font-weight: 500;
   margin-bottom: 8px;
 }
 .auth-content label > span[aria-hidden] {
-  color: #8d73b0;
+  color: #73b0aa;
 }
 .auth-content input:not([type='checkbox']) {
   background: #fff;
-  border: 1px solid #ded8e7;
+  border: 1px solid #d8e7e6;
   border-radius: 9px;
   height: 45px;
   padding: 12px 13px;
@@ -388,15 +388,15 @@
     box-shadow 0.16s;
 }
 .auth-content input::placeholder {
-  color: #aaa2b5;
+  color: #a1b6b4;
 }
 .auth-content input:hover {
-  border-color: #b4a1ce;
+  border-color: #a1ceca;
 }
 .auth-content input:focus {
   outline: 0;
-  border-color: #8563b0;
-  box-shadow: 0 0 0 3px #9c78c31c;
+  border-color: #63b0a8;
+  box-shadow: 0 0 0 3px #78c3bc1c;
 }
 .auth-content input[aria-invalid='true'] {
   border-color: #bc4d68;
@@ -407,7 +407,7 @@
   align-items: baseline;
 }
 .auth-content .text-button {
-  color: #7b5a9d;
+  color: #5a9d96;
   font-size: 11px;
 }
 .auth-content .password-field {
@@ -424,20 +424,20 @@
   bottom: 5px;
   background: transparent;
   border: 0;
-  color: #7b5a9d;
+  color: #5a9d96;
   padding: 0 12px;
   cursor: pointer;
   border-radius: 5px;
   font-size: 11px;
 }
 .auth-content .password-field button:hover {
-  background: #eee7f7;
+  background: #e7f7f5;
 }
 .password-hint,
 .role-hint {
   font-size: 11px;
   line-height: 1.6;
-  color: #7a7188;
+  color: #6e8b88;
   margin: 9px 0 15px;
 }
 .role-hint {
@@ -448,15 +448,15 @@
   grid-template-columns: 1fr 1fr;
   gap: 6px 10px;
   padding: 12px;
-  border: 1px solid #e7e1ef;
-  background: #f3eff8;
+  border: 1px solid #e1efee;
+  background: #eff8f7;
   border-radius: 8px;
   margin: 12px 0;
   list-style: none;
 }
 .password-requirements li {
   font-size: 10px;
-  color: #85798e;
+  color: #75928f;
   padding: 0;
 }
 .password-requirements li::before {
@@ -488,7 +488,7 @@
 .connection-status {
   font-size: 11px;
   line-height: 1.5;
-  color: #78628e;
+  color: #628e8a;
   margin: 12px 0;
 }
 .connection-retry {
@@ -510,26 +510,26 @@
 }
 .auth-content .button.primary:hover:not(:disabled) {
   background: var(--access-accent-hover);
-  box-shadow: 0 5px 14px #67458228;
+  box-shadow: 0 5px 14px #45827c28;
 }
 .auth-content button:active:not(:disabled) {
   transform: translateY(1px);
 }
 .auth-content button:focus-visible,
 .auth-footer button:focus-visible {
-  outline: 3px solid #ac8bd0;
+  outline: 3px solid #8bd0c9;
   outline-offset: 3px;
 }
 .auth-content .button:disabled {
   cursor: wait;
-  background: #b8a4cc;
-  border-color: #b8a4cc;
+  background: #a4ccc8;
+  border-color: #a4ccc8;
   opacity: 0.85;
 }
 .auth-content .check {
   font-size: 11px;
   line-height: 1.6;
-  color: #756b82;
+  color: #688582;
   gap: 9px;
   align-items: flex-start;
   margin-top: 17px;
@@ -542,13 +542,13 @@
   display: flex;
   gap: 12px;
   align-items: center;
-  border-top: 1px solid #e7e1ed;
+  border-top: 1px solid #e1edec;
   margin-top: 28px;
   padding-top: 22px;
 }
 .sync-symbol {
-  color: #977cb2;
-  background: #eee7f7;
+  color: #7cb2ad;
+  background: #e7f7f5;
   border-radius: 10px;
   width: 35px;
   height: 35px;
@@ -559,13 +559,13 @@
 }
 .same-account strong {
   font-size: 11px;
-  color: #655571;
+  color: #55716e;
   font-weight: 500;
 }
 .same-account p {
   font-size: 10px;
   line-height: 1.6;
-  color: #92869d;
+  color: #849f9c;
   margin: 4px 0 0;
 }
 .auth-footer {
@@ -578,10 +578,10 @@
   margin: 12vh auto;
   padding: 32px;
   border-radius: 18px;
-  border: 1px solid #e0d5ef;
+  border: 1px solid #d5efec;
   background: white;
   line-height: 1.8;
-  color: #423151;
+  color: #31514e;
 }
 [hidden] {
   display: none !important;
@@ -641,14 +641,14 @@
     font-size: 8px;
   }
   .hero-visual::after {
-    background: linear-gradient(90deg, #3020452b, #30204500);
+    background: linear-gradient(90deg, #2045412b, #20454100);
   }
   .hero-car {
     width: min(86%, 430px);
     left: 7%;
     right: auto;
     bottom: 12px;
-    filter: drop-shadow(0 14px 12px #1c12294d);
+    filter: drop-shadow(0 14px 12px #1229274d);
   }
   .hero-road {
     bottom: 8%;
@@ -716,4 +716,20 @@
   .access-roles * {
     transition: none !important;
   }
+}
+
+.auth-content .button.primary {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #00857e, #006a68);
+  box-shadow:
+    inset 0 1px 0 #ffffff35,
+    0 6px 18px #006a681c;
+}
+.auth-content .button.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00736e, #005654);
+}
+.hero-visual {
+  background:
+    radial-gradient(ellipse at 80% 46%, #20d7c52b, transparent 53%),
+    linear-gradient(150deg, #31575a 0%, #183b3f 44%, #102326 100%);
 }

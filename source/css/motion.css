@@ -1,0 +1,44 @@
+/* Animaciones decorativas finitas: el acceso nunca espera una animación. */
+@keyframes car-arrive {
+  from {
+    opacity: 0;
+    transform: translate3d(-24px, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes surface-arrive {
+  from {
+    opacity: 0.65;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-car {
+    animation: car-arrive 900ms var(--motion-ease) both;
+  }
+  .auth-content {
+    animation: surface-arrive 450ms var(--motion-ease) both;
+  }
+  @supports (animation-timeline: view()) {
+    .same-account {
+      animation: surface-arrive linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-car,
+  .auth-content,
+  .same-account {
+    animation: none;
+    transform: none;
+  }
+}

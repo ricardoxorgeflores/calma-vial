@@ -1,0 +1,9 @@
+{
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": true,
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.exclude": { "**/node_modules": true, "dist": true, "entregables": true },
+  "search.exclude": { "**/node_modules": true, "dist": true, "entregables": true }
+}

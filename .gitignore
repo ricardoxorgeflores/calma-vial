@@ -1,0 +1,9 @@
+source/node_modules/
+source/dist/
+source/output/
+source/analysis/
+source/tmp/
+*.log
+.env
+.env.*
+!.env.example

@@ -1,0 +1,9 @@
+# Archivos generados, dependencias y fuentes recuperadas sin modificar.
+node_modules/
+dist/
+sites/
+vendor/
+analysis/
+recovered/
+screenshots/
+package-lock.json

@@ -1,0 +1,24 @@
+{
+  "name": "calma-vial-web",
+  "version": "3.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "format": "prettier --write \"{html,css,js,tests,scripts}/**/*.{html,css,js,mjs,json,svg}\" \"*.{html,mjs,json,code-workspace}\" \"assets/images/*.svg\" \".vscode/*.json\" .prettierrc.json",
+    "format:check": "prettier --check \"{html,css,js,tests,scripts}/**/*.{html,css,js,mjs,json,svg}\" \"*.{html,mjs,json,code-workspace}\" \"assets/images/*.svg\" \".vscode/*.json\" .prettierrc.json",
+    "dev": "node server.mjs --dev",
+    "build": "node scripts/build.mjs",
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "linkedom": "0.18.12",
+    "prettier": "3.9.10"
+  },
+  "dependencies": {
+    "jspdf": "4.2.1"
+  }
+}

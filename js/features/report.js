@@ -1,4 +1,4 @@
-import { recommendations, FACTORS } from '../domain/domain.js?v=0af7c1752fca';
+import { recommendations, FACTORS } from '../domain/domain.js?v=4aad031f6e83';
 
 export const REPORT_DISCLAIMER =
   'Este informe es educativo y orientativo. No es un diagnóstico, no evalúa la aptitud para conducir y no sustituye una valoración médica o psicológica. Si el malestar persiste, afecta tu vida cotidiana o te preocupa, busca valoración de un profesional de salud. No tomes decisiones clínicas basándote solo en estos resultados.';
@@ -8,8 +8,8 @@ let fontsPromise;
 export function loadReportFonts() {
   fontsPromise ||= Promise.all(
     [
-      new URL('../../assets/fonts/Roboto-Regular.ttf?v=0af7c1752fca', import.meta.url),
-      new URL('../../assets/fonts/Roboto-Bold.ttf?v=0af7c1752fca', import.meta.url),
+      new URL('../../assets/fonts/Roboto-Regular.ttf?v=4aad031f6e83', import.meta.url),
+      new URL('../../assets/fonts/Roboto-Bold.ttf?v=4aad031f6e83', import.meta.url),
     ].map(async (url) => {
       const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error('No se pudo cargar la tipografía del informe.');
@@ -40,9 +40,9 @@ export function createReportPdf(report, Pdf, fonts) {
     subject: 'Resumen orientativo de tres evaluaciones DAS',
     creator: 'Calma Vial',
   });
-  const indigo = [59, 59, 152],
-    ink = [37, 37, 62],
-    muted = [93, 98, 118];
+  const indigo = [0, 127, 121],
+    ink = [23, 46, 50],
+    muted = [80, 105, 110];
   const day = (value) =>
     new Date(value).toLocaleDateString('es-BO', {
       day: '2-digit',
@@ -178,7 +178,7 @@ export function createReportPdf(report, Pdf, fonts) {
 let engineLoading;
 export async function loadPdfEngine() {
   if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
-  engineLoading ??= import('../../vendor/jspdf.umd.min.js?v=0af7c1752fca').catch((error) => {
+  engineLoading ??= import('../../vendor/jspdf.umd.min.js?v=4aad031f6e83').catch((error) => {
     engineLoading = null;
     throw error;
   });

@@ -1,6 +1,6 @@
-import { createGovernanceApi } from './governance-api.js?v=0af7c1752fca';
-import { config } from '../config/config.js?v=0af7c1752fca';
-import { reportDTO } from './dto.js?v=0af7c1752fca';
+import { createGovernanceApi } from './governance-api.js?v=4aad031f6e83';
+import { config } from '../config/config.js?v=4aad031f6e83';
+import { reportDTO } from './dto.js?v=4aad031f6e83';
 import {
   validateDiary,
   validateProfile,
@@ -8,7 +8,7 @@ import {
   normalizeFactor,
   DIARY_FACTORS,
   validateNotice,
-} from '../domain/domain.js?v=0af7c1752fca';
+} from '../domain/domain.js?v=4aad031f6e83';
 if (!window.supabase)
   throw new Error('No se pudo cargar el servicio de acceso. Recarga la página.');
 

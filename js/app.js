@@ -1,18 +1,18 @@
-import { createGovernance } from './features/governance.js?v=0af7c1752fca';
-import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=0af7c1752fca';
-import { createManagementApi } from './services/management-api.js?v=0af7c1752fca';
-import { createManagementController } from './features/management-controller.js?v=0af7c1752fca';
-import { evolutionChart } from './features/evolution.js?v=0af7c1752fca';
-import { icon, passwordToggle } from './ui/icons.js?v=0af7c1752fca';
-import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=0af7c1752fca';
-import { api, db, unwrap } from './services/api.js?v=0af7c1752fca';
-import { prepareAvatar } from './features/avatar.js?v=0af7c1752fca';
+import { createGovernance } from './features/governance.js?v=4aad031f6e83';
+import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=4aad031f6e83';
+import { createManagementApi } from './services/management-api.js?v=4aad031f6e83';
+import { createManagementController } from './features/management-controller.js?v=4aad031f6e83';
+import { evolutionChart } from './features/evolution.js?v=4aad031f6e83';
+import { icon, passwordToggle } from './ui/icons.js?v=4aad031f6e83';
+import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=4aad031f6e83';
+import { api, db, unwrap } from './services/api.js?v=4aad031f6e83';
+import { prepareAvatar } from './features/avatar.js?v=4aad031f6e83';
 import {
   createReportPdf,
   loadReportFonts,
   loadPdfEngine,
   REPORT_DISCLAIMER,
-} from './features/report.js?v=0af7c1752fca';
+} from './features/report.js?v=4aad031f6e83';
 import {
   QUESTIONS,
   LABELS,
@@ -28,7 +28,7 @@ import {
   validateEmail,
   validatePassword,
   calculate,
-} from './domain/domain.js?v=0af7c1752fca';
+} from './domain/domain.js?v=4aad031f6e83';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -509,7 +509,7 @@ function dashboard() {
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
         <div class="hero-wheel" aria-hidden="true">
-          <img src="./assets/images/logo.svg?v=0af7c1752fca" alt="" />
+          <img src="./assets/images/logo.svg?v=4aad031f6e83" alt="" />
         </div>
       </section>
       <div class="stats-grid">
@@ -910,6 +910,10 @@ function evaluation() {
               </select>
             </div>
             <div>
+              <p class="mini-note">
+                Alcance del estudio: vehículos particulares, transporte público y comercial. No se
+                ofrece una adaptación para motocicletas.
+              </p>
               <label for="vehicle">Tipo de vehículo</label
               ><select id="vehicle" name="vehiculo" required>
                 ${VEHICLES.slice(0, 4)
@@ -1450,10 +1454,12 @@ function adminRows(query) {
           <td>${es.length}</td>
           <td>${badge(es[0]?.nivel)}</td>
           <td>
-            <button class="text-button" data-action="manage-user" data-id="${escape(p.id)}">
-              Ver evolución ↗
-            </button>
-            ${p.rol === 'usuario' ? `<button class="text-button" data-action="govern-account" data-id="${escape(p.id)}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Restaurar usuario' : 'Eliminar usuario'}</button><small>${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Acceso retirado' : 'Activo'}</small>` : ''}
+            <div class="user-actions">
+              <button class="text-button" data-action="manage-user" data-id="${escape(p.id)}">
+                Ver evolución ↗
+              </button>
+              ${p.rol === 'usuario' ? `<button class="text-button" data-action="govern-account" data-id="${escape(p.id)}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Reactivar acceso' : 'Suspender acceso'}</button><span class="account-status ${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'suspended' : ''}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Suspendido' : 'Activo'}</span>` : ''}
+            </div>
           </td>
         </tr>`;
       })

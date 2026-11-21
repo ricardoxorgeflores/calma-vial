@@ -23,7 +23,7 @@ if (location.protocol !== 'file:') {
         ),
       10000,
     );
-    await import('./app.js?v=0af7c1752fca');
+    await import('./app.js?v=4aad031f6e83');
   } catch {
     window.CalmaAuthUI?.setServiceState(
       'error',

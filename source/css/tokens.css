@@ -1,0 +1,9 @@
+/* Variables visuales del acceso; colores de marca compartidos en base.css. */
+:root {
+  --access-accent: #007f79;
+  --access-accent-hover: #005f5c;
+  --access-surface: #f9fdfd;
+  --access-ink: #223e3b;
+  --story-fallback: #103b3e;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}

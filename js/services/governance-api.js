@@ -1,4 +1,4 @@
-import { validateQuestionnaire } from '../domain/questionnaire.js?v=0af7c1752fca';
+import { validateQuestionnaire } from '../domain/questionnaire.js?v=4aad031f6e83';
 const unwrap = (result) => {
   if (result.error) throw result.error;
   return result.data;
@@ -59,6 +59,25 @@ export function createGovernanceApi(db) {
         }),
       );
     },
-    diagnostics: async () => unwrap(await db.rpc('calmavial_diagnostico')),
+    diagnostics: async () => {
+      const data = unwrap(await db.rpc('calmavial_diagnostico'));
+      const counters = [
+        'hashes_bcrypt',
+        'cuentas_con_password',
+        'tablas_rls',
+        'usuarios_eliminados',
+      ];
+      if (
+        !data ||
+        data.conexion !== 'ok' ||
+        !Number.isFinite(Date.parse(data.comprobado_en)) ||
+        counters.some((key) => !Number.isInteger(data[key]) || data[key] < 0) ||
+        data.hashes_bcrypt > data.cuentas_con_password ||
+        data.tablas_rls > 7 ||
+        !Array.isArray(data.auditoria)
+      )
+        throw new Error('El servicio devolvió un diagnóstico incompleto. Vuelve a comprobar.');
+      return data;
+    },
   };
 }

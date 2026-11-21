@@ -30,15 +30,7 @@ export const LABELS = ['Nada', 'Poco', 'Algo', 'Bastante', 'Muchísimo'];
 export const MOODS = ['Muy calmado', 'Calmado', 'Neutral', 'Molesto', 'Furioso'];
 export const MOOD_ICONS = ['😌', '🙂', '😐', '😟', '😠'];
 export const MOMENTS = ['Antes de conducir', 'Después de conducir', 'En otro momento'];
-export const VEHICLES = [
-  'Particular',
-  'Transporte público',
-  'Transporte comercial',
-  'Motocicleta',
-  'Auto particular',
-  'Camión',
-  'Otro',
-];
+export const VEHICLES = ['Particular', 'Transporte público', 'Transporte comercial'];
 export const DIARY_FACTORS = { ...FACTORS, OTRA: 'Otra' };
 export function normalizeFactor(value) {
   return (
