@@ -809,3 +809,70 @@ dialog:has(.evaluation-review) {
 .diagnostic-result .data-status-list {
   margin-bottom: 0;
 }
+
+/* Accesos administrativos operables con ratón, teclado y pantallas táctiles. */
+a.metric-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  min-height: 150px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+a.metric-card:hover,
+.admin-shortcuts a:hover {
+  border-color: var(--indigo);
+  box-shadow: 0 8px 24px #007f791a;
+}
+a.metric-card:focus-visible,
+.admin-shortcuts a:focus-visible {
+  outline: 3px solid var(--indigo);
+  outline-offset: 4px;
+}
+.toolbar > div {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.danger-text {
+  color: var(--red);
+}
+.account-trash {
+  display: grid;
+  gap: 14px;
+}
+.account-trash article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 680px) {
+  .is-admin #adminMenu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .is-admin #adminMenu .nav-label {
+    grid-column: 1 / -1;
+  }
+  .is-admin #adminMenu a {
+    min-height: 44px;
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+  .user-actions {
+    min-width: 180px;
+  }
+  .toolbar {
+    flex-wrap: wrap;
+  }
+  .platform-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  a.metric-card {
+    transition: none;
+  }
+}

@@ -5,8 +5,8 @@ import {
   adminUserDetail,
   evaluationDetail,
   adminProfileForm,
-} from './management-views.js?v=4aad031f6e83';
-import { escapeHtml as e, displayName } from '../ui/format.js?v=4aad031f6e83';
+} from './management-views.js?v=1d4126404cba';
+import { escapeHtml as e, displayName } from '../ui/format.js?v=1d4126404cba';
 
 // El estado de las conversaciones pertenece a una sesión y se invalida al salir.
 export function createManagementController({
@@ -32,7 +32,7 @@ export function createManagementController({
   const current = (stamp) => context().revision === stamp && Boolean(context().session);
   const find = (id) => model.items?.find((row) => row.id === id);
   function redraw() {
-    if (['sugerencias', 'admin'].includes(context().view)) render();
+    if (['sugerencias', 'pendientes', 'admin'].includes(context().view)) render();
   }
   async function load() {
     if (!context().session || model.loading) return;
@@ -277,6 +277,9 @@ export function createManagementController({
   return {
     render: () => inboxView(model, admin()),
     load,
+    setFilter(value) {
+      model.filter = value;
+    },
     reset() {
       listRequest++;
       threadRequest++;

@@ -1,18 +1,24 @@
-import { createGovernance } from './features/governance.js?v=4aad031f6e83';
-import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=4aad031f6e83';
-import { createManagementApi } from './services/management-api.js?v=4aad031f6e83';
-import { createManagementController } from './features/management-controller.js?v=4aad031f6e83';
-import { evolutionChart } from './features/evolution.js?v=4aad031f6e83';
-import { icon, passwordToggle } from './ui/icons.js?v=4aad031f6e83';
-import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=4aad031f6e83';
-import { api, db, unwrap } from './services/api.js?v=4aad031f6e83';
-import { prepareAvatar } from './features/avatar.js?v=4aad031f6e83';
+import {
+  ADMIN_VIEWS,
+  adminPopulation,
+  evaluationDashboard,
+  participationDashboard,
+} from './features/admin-dashboards.js?v=1d4126404cba';
+import { createGovernance } from './features/governance.js?v=1d4126404cba';
+import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=1d4126404cba';
+import { createManagementApi } from './services/management-api.js?v=1d4126404cba';
+import { createManagementController } from './features/management-controller.js?v=1d4126404cba';
+import { evolutionChart } from './features/evolution.js?v=1d4126404cba';
+import { icon, passwordToggle } from './ui/icons.js?v=1d4126404cba';
+import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=1d4126404cba';
+import { api, db, unwrap } from './services/api.js?v=1d4126404cba';
+import { prepareAvatar } from './features/avatar.js?v=1d4126404cba';
 import {
   createReportPdf,
   loadReportFonts,
   loadPdfEngine,
   REPORT_DISCLAIMER,
-} from './features/report.js?v=4aad031f6e83';
+} from './features/report.js?v=1d4126404cba';
 import {
   QUESTIONS,
   LABELS,
@@ -28,7 +34,7 @@ import {
   validateEmail,
   validatePassword,
   calculate,
-} from './domain/domain.js?v=4aad031f6e83';
+} from './domain/domain.js?v=1d4126404cba';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -43,6 +49,10 @@ const state = {
   catalog: [],
   evaluationVersions: [],
   removedUsers: [],
+  deletedUsers: [],
+  adminEvalSearch: '',
+  adminLevel: '',
+  participationStatus: 'todas',
   evalQuestionnaire: originalQuestionnaire(),
   session: null,
   profile: null,
@@ -91,6 +101,9 @@ const titles = {
   perfil: 'Mi perfil',
   admin: 'Panel de administración',
   usuarios: 'Usuarios y evolución',
+  'evaluaciones-admin': 'Evaluaciones de la comunidad',
+  participacion: 'Participación de usuarios',
+  pendientes: 'Atención pendiente',
   sugerencias: 'Sugerencias y consultas',
   sistema: 'Configuración y control',
   avisos: 'Avisos de la plataforma',
@@ -108,7 +121,7 @@ let authPending = false,
 const managementController = createManagementController({
   api: createManagementApi(db),
   context: () => state,
-  adminData: () => state.admin,
+  adminData: () => (state.admin ? { ...state.admin, ...adminPopulation(state) } : null),
   ensureAdmin: async () => {
     if (!state.admin) await loadAdmin();
   },
@@ -509,7 +522,7 @@ function dashboard() {
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
         <div class="hero-wheel" aria-hidden="true">
-          <img src="./assets/images/logo.svg?v=4aad031f6e83" alt="" />
+          <img src="./assets/images/logo.svg?v=1d4126404cba" alt="" />
         </div>
       </section>
       <div class="stats-grid">
@@ -910,10 +923,6 @@ function evaluation() {
               </select>
             </div>
             <div>
-              <p class="mini-note">
-                Alcance del estudio: vehículos particulares, transporte público y comercial. No se
-                ofrece una adaptación para motocicletas.
-              </p>
               <label for="vehicle">Tipo de vehículo</label
               ><select id="vehicle" name="vehiculo" required>
                 ${VEHICLES.slice(0, 4)
@@ -1321,20 +1330,13 @@ function admin() {
       heading('Panel de administración', 'Conectando la gestión de tu comunidad.') +
       '<div class="loading-state"><div class="spinner"></div>Cargando datos autorizados…</div>'
     );
-  const summary = adminSummary(state.admin.evaluations);
+  const population = adminPopulation(state);
+  const summary = adminSummary(population.evaluations);
   const threads = managementController.items;
   return `<section class="admin-welcome"><div><span class="eyebrow">CENTRO DE GESTIÓN · CALMA VIAL</span><h1>Tu comunidad,<br />con acompañamiento.</h1><p>Revisa evaluaciones, observa tendencias y responde a los usuarios desde un espacio de administración propio.</p><a class="button" href="#usuarios">${icon('users')} Gestionar usuarios</a></div><div class="admin-welcome-art" aria-hidden="true">${icon('chart')}<span>Observar. Orientar. Acompañar.</span></div></section>
-    <div class="platform-metrics"><article class="metric-card"><span>Comunidad</span><strong>${state.admin.profiles.length}</strong><small>Cuentas registradas</small></article><article class="metric-card"><span>Evaluaciones</span><strong>${summary.count}</strong><small>Registros autorizados</small></article><article class="metric-card"><span>Atención pendiente</span><strong>${threads ? threads.filter((row) => !row.eliminado && row.estado !== 'resuelta').length : '—'}</strong><small>Consultas por atender</small></article><article class="metric-card"><span>Participación</span><strong>${summary.active}</strong><small>Personas con evaluaciones</small></article></div>
+    <div class="platform-metrics"><a class="metric-card" href="#usuarios"><span>Comunidad</span><strong>${population.profiles.length}</strong><small>Cuentas registradas · Ver usuarios ↗</small></a><a class="metric-card" href="#evaluaciones-admin"><span>Evaluaciones</span><strong>${summary.count}</strong><small>Registros autorizados · Ver evaluaciones ↗</small></a><a class="metric-card" href="#pendientes"><span>Atención pendiente</span><strong>${threads ? threads.filter((row) => !row.eliminado && row.estado !== 'resuelta').length : '—'}</strong><small>Consultas por atender · Abrir bandeja ↗</small></a><a class="metric-card" href="#participacion"><span>Participación</span><strong>${population.profiles.filter((p) => p.rol === 'usuario' && population.evaluations.some((ev) => ev.usuario_id === p.id)).length}</strong><small>Usuarios con evaluaciones · Ver participación ↗</small></a></div>
     <div class="admin-shortcuts"><a class="card" href="#usuarios">${icon('users')}<h2>Usuarios y evolución</h2><p>Datos, respuestas y gráficos individuales.</p></a><a class="card" href="#sugerencias">${icon('chat')}<h2>Bandeja de atención</h2><p>Responder, moderar y dar seguimiento.</p></a><a class="card" href="#avisos">${icon('edit')}<h2>Avisos de la plataforma</h2><p>Publicar y gestionar información para la comunidad.</p></a></div>
-    <div class="insights-grid"><section class="card"><div class="card-title"><h2>Factores de la comunidad</h2><span class="badge">DAS · 14 ítems</span></div>${summary.count ? bars(summary.factors) : '<p class="subtle">Todavía no hay evaluaciones.</p>'}</section><section class="card"><div class="card-title"><h2>Últimas evaluaciones</h2><a class="text-button" href="#usuarios">Ver usuarios</a></div><div class="admin-recent">${
-      state.admin.evaluations
-        .slice(0, 5)
-        .map((row) => {
-          const person = state.admin.profiles.find((p) => p.id === row.usuario_id);
-          return `<button data-action="manage-user" data-id="${escape(row.usuario_id)}"><span class="avatar">${escape(person?.nombres?.slice(0, 2) || 'CV')}</span><span><strong>${escape(person?.nombres || 'Usuario')}</strong><small>${date(row.creado_en)}</small></span>${badge(row.nivel)}${icon('arrow')}</button>`;
-        })
-        .join('') || '<p class="subtle">Los registros aparecerán aquí.</p>'
-    }</div></section></div>`;
+    <section class="card"><h2>Qué puedes gestionar</h2><p class="subtle">Abre una tarjeta para consultar sus registros. Usuarios permite editar perfiles, suspender accesos y gestionar bajas; la bandeja reúne las consultas y los avisos comunican información a la comunidad.</p></section>`;
 }
 
 function users() {
@@ -1343,53 +1345,15 @@ function users() {
       heading('Administración', 'Información de las cuentas autorizadas.') +
       '<div class="loading-state"><div class="spinner"></div>Cargando datos autorizados…</div>'
     );
-  const summary = adminSummary(state.admin.evaluations);
   return (
     heading(
       'Usuarios y evolución',
-      'Consulta de usuarios y seguimiento de evaluaciones.',
-      '<a class="button" href="#sugerencias">Bandeja de atención</a>',
+      'Busca cuentas, consulta su evolución y administra su acceso.',
+      '<div class="form-actions"><button class="button ghost" data-action="govern-deleted">Usuarios eliminados (' +
+        state.deletedUsers.length +
+        ')</button><a class="button ghost" href="#admin">Volver al panel</a></div>',
     ) +
-    /* HTML */ `<div class="platform-metrics">
-        <article class="metric-card">
-          <span>Comunidad</span><strong>${state.admin.profiles.length}</strong
-          ><small>Cuentas registradas</small>
-        </article>
-        <article class="metric-card">
-          <span>Participación</span><strong>${summary.active}</strong
-          ><small>Personas con evaluaciones</small>
-        </article>
-        <article class="metric-card">
-          <span>Autoevaluaciones</span><strong>${summary.count}</strong
-          ><small>Registros autorizados</small>
-        </article>
-        <article class="metric-card">
-          <span>Promedio orientativo</span
-          ><strong>${summary.count ? number(summary.mean) : '—'}<em>/ 5</em></strong
-          ><small>Sin interpretación diagnóstica</small>
-        </article>
-      </div>
-      <div class="insights-grid">
-        <section class="card">
-          <div class="card-title">
-            <h2>Factores de la comunidad</h2>
-            <span class="badge">DAS · 14 ítems</span>
-          </div>
-          ${summary.count ? bars(summary.factors) : '<p class="subtle">Los factores aparecerán al registrar evaluaciones.</p>'}
-        </section>
-        <section class="card">
-          <div class="card-title"><h2>Distribución de resultados</h2></div>
-          <div class="level-distribution">
-            ${Object.entries(summary.levels)
-              .map(
-                ([level, count]) =>
-                  `<div class="factor-row"><div class="factor-label">${badge(level)}<strong>${count}</strong></div><div class="track"><span data-width="${summary.count ? (count / summary.count) * 100 : 0}"></span></div></div>`,
-              )
-              .join('')}
-          </div>
-        </section>
-      </div>
-      <section class="card">
+    `      <section class="card">
         <div class="card-title">
           <div>
             <h2>Comunidad Calma Vial</h2>
@@ -1432,8 +1396,8 @@ function users() {
 
 function adminRows(query) {
   return (
-    state.admin.profiles
-      .filter((p) =>
+    adminPopulation(state)
+      .profiles.filter((p) =>
         [p.nombres, p.apellido_paterno, p.correo]
           .join(' ')
           .toLowerCase()
@@ -1458,7 +1422,7 @@ function adminRows(query) {
               <button class="text-button" data-action="manage-user" data-id="${escape(p.id)}">
                 Ver evolución ↗
               </button>
-              ${p.rol === 'usuario' ? `<button class="text-button" data-action="govern-account" data-id="${escape(p.id)}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Reactivar acceso' : 'Suspender acceso'}</button><span class="account-status ${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'suspended' : ''}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Suspendido' : 'Activo'}</span>` : ''}
+              ${p.rol === 'usuario' ? `<button class="text-button" data-action="govern-account" data-id="${escape(p.id)}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Reactivar acceso' : 'Suspender acceso'}</button><span class="account-status ${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'suspended' : ''}">${state.removedUsers.some((item) => item.usuario_id === p.id) ? 'Suspendido' : 'Activo'}</span><button class="text-button danger-text" data-action="govern-delete" data-id="${escape(p.id)}">Eliminar usuario</button>` : ''}
             </div>
           </td>
         </tr>`;
@@ -1483,8 +1447,7 @@ function navigate() {
   let view = Object.hasOwn(titles, desired) ? desired : 'inicio';
   if (state.profile?.rol === 'admin' && view === 'inicio') view = 'admin';
   if (!state.profile) view = 'perfil';
-  if (['admin', 'usuarios', 'sistema'].includes(view) && state.profile?.rol !== 'admin')
-    view = 'inicio';
+  if (ADMIN_VIEWS.includes(view) && state.profile?.rol !== 'admin') view = 'inicio';
   if (state.view === 'calma' && view !== 'calma') stopBreathing();
   const viewChanged = state.view !== view;
   state.view = view;
@@ -1493,8 +1456,9 @@ function navigate() {
     window.scrollTo?.(0, 0);
     $('page').focus?.({ preventScroll: true });
   }
-  if (['admin', 'usuarios', 'sistema'].includes(view) && !state.admin) loadAdmin();
-  if (view === 'sugerencias') {
+  if (ADMIN_VIEWS.includes(view) && !state.admin) loadAdmin();
+  if (['sugerencias', 'pendientes'].includes(view)) {
+    if (viewChanged) managementController.setFilter(view === 'pendientes' ? 'pendientes' : 'todas');
     if (state.profile?.rol === 'admin' && !state.admin) void loadAdmin();
     void managementController.load();
   }
@@ -1505,11 +1469,7 @@ function navigate() {
 
 function render() {
   if (!state.session) return;
-  if (
-    ['admin', 'usuarios', 'sistema'].includes(state.view) &&
-    state.profile &&
-    state.profile.rol !== 'admin'
-  ) {
+  if (ADMIN_VIEWS.includes(state.view) && state.profile && state.profile.rol !== 'admin') {
     state.view = 'inicio';
     state.admin = null;
   }
@@ -1557,6 +1517,9 @@ function render() {
     perfil: profile,
     admin,
     usuarios: users,
+    'evaluaciones-admin': () => (state.admin ? evaluationDashboard(state) : admin()),
+    participacion: () => (state.admin ? participationDashboard(state) : admin()),
+    pendientes: () => managementController.render(),
     sugerencias: () => managementController.render(),
     sistema: systemOverview,
     avisos: notices,
@@ -1645,12 +1608,14 @@ async function loadAdmin() {
     const result = await api.admin();
     if (revision !== state.revision) return;
     if (api.accountStates) {
-      const [removed, versions] = await Promise.all([
+      const [removed, versions, deleted] = await Promise.all([
         api.accountStates(),
         api.evaluationVersions(),
+        api.deletedAccounts ? api.deletedAccounts() : [],
       ]);
       if (revision !== state.revision) return;
       state.removedUsers = removed;
+      state.deletedUsers = deleted;
       state.evaluationVersions = versions;
     }
     result.evaluations = result.evaluations.map((row) => ({
@@ -1660,7 +1625,7 @@ async function loadAdmin() {
     }));
     state.admin = result;
     void managementController.load();
-    if (['admin', 'usuarios', 'sistema'].includes(state.view)) render();
+    if (ADMIN_VIEWS.includes(state.view)) render();
   } catch (e) {
     if (revision !== state.revision) return;
     state.admin = null;
@@ -1682,6 +1647,10 @@ async function receiveSession(session) {
   governance.reset();
   state.catalog = [];
   state.removedUsers = [];
+  state.deletedUsers = [];
+  state.adminEvalSearch = '';
+  state.adminLevel = '';
+  state.participationStatus = 'todas';
   state.evaluationVersions = [];
   state.evalQuestionnaire = originalQuestionnaire();
   if (syncChannel) {
@@ -1761,7 +1730,7 @@ function subscribeToChanges() {
     ) {
       loadData({ quiet: true }).then(() => {
         if (!state.session) return;
-        if (state.view === 'admin' && state.profile?.rol === 'admin') {
+        if (ADMIN_VIEWS.includes(state.view) && state.profile?.rol === 'admin') {
           state.admin = null;
           loadAdmin();
         } else render();
@@ -2106,6 +2075,22 @@ document.addEventListener('submit', async (event) => {
 
 // Delegar los clics permite volver a renderizar las vistas sin duplicar listeners.
 document.addEventListener('click', async (event) => {
+  const link = event.target.closest('a[href^="#"]');
+  if (
+    link &&
+    !event.defaultPrevented &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    !event.altKey &&
+    (!event.button || event.button === 0) &&
+    Object.hasOwn(titles, link.getAttribute('href').slice(1))
+  ) {
+    event.preventDefault();
+    location.hash = link.getAttribute('href');
+    navigate();
+    return;
+  }
   const target = event.target.closest('[data-action]');
   if (!target || target.disabled) return;
   if (target.dataset.action === 'open-report') {
@@ -2495,6 +2480,25 @@ document.addEventListener('click', async (event) => {
     toast(errorText(e), true);
   }
 });
+document.addEventListener('change', (event) => {
+  if (state.profile?.rol !== 'admin') return;
+  if (event.target.id === 'adminLevel') {
+    state.adminLevel = event.target.value;
+    render();
+  }
+  if (event.target.id === 'participationStatus') {
+    state.participationStatus = event.target.value;
+    render();
+  }
+});
+document.addEventListener('input', (event) => {
+  if (event.target.id !== 'adminEvalSearch' || state.profile?.rol !== 'admin') return;
+  const position = event.target.selectionStart;
+  state.adminEvalSearch = event.target.value;
+  render();
+  $('adminEvalSearch')?.focus();
+  $('adminEvalSearch')?.setSelectionRange?.(position, position);
+});
 window.addEventListener('hashchange', navigate);
 window.addEventListener('offline', () => {
   if (state.session) {
@@ -2519,9 +2523,8 @@ async function autoRefresh() {
   )
     return;
   await loadData({ quiet: true });
-  if (['admin', 'usuarios'].includes(state.view) && state.profile?.rol === 'admin')
-    await loadAdmin();
-  if (state.view === 'sugerencias') await managementController.load();
+  if (ADMIN_VIEWS.includes(state.view) && state.profile?.rol === 'admin') await loadAdmin();
+  if (['sugerencias', 'pendientes'].includes(state.view)) await managementController.load();
   if (state.view === 'avisos') await loadNotices();
   if (!state.error && state.session) render();
 }

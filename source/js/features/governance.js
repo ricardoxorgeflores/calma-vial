@@ -70,6 +70,29 @@ export function createGovernance({
           `<form id="governAccount" data-id="${e(profile.id)}" data-remove="${!removed}"><p>${e(profile.nombres)} · ${e(profile.correo)}</p><p>${removed ? 'La cuenta recuperará su acceso a Calma Vial y conservará sus registros.' : 'Se suspenderá su acceso a Calma Vial, incluso con una sesión existente. Los registros se conservarán para poder restaurar la cuenta. No se elimina la identidad compartida de Supabase Auth.'}</p><label for="accountReason">Motivo</label><textarea id="accountReason" name="motivo" required minlength="10" maxlength="300"></textarea><div id="governFeedback" class="feedback" hidden role="alert"></div><button class="button" type="submit">${removed ? 'Confirmar reactivación' : 'Confirmar suspensión'}</button></form>`,
         );
       }
+      if (button.dataset.action === 'govern-deleted') {
+        openModal(
+          'Usuarios eliminados',
+          `<p>Las bajas se conservan aquí para poder recuperarlas. No aparecen en el directorio y no pueden acceder a Calma Vial.</p><div class="account-trash">${
+            (state.deletedUsers || [])
+              .map((row) => {
+                const person = state.admin?.profiles.find((p) => p.id === row.usuario_id);
+                return `<article><h3>${e(person?.nombres || 'Usuario')}</h3><p>${e(person?.correo)}</p><p>Eliminado: ${e(new Date(row.creado_en).toLocaleString('es-BO'))}</p><p>Motivo: ${e(row.motivo)}</p><button class="button ghost" data-action="govern-restore-user" data-id="${e(row.usuario_id)}">Restaurar usuario</button></article>`;
+              })
+              .join('') || '<p>No hay usuarios eliminados.</p>'
+          }</div>`,
+        );
+      }
+      if (['govern-delete', 'govern-restore-user'].includes(button.dataset.action)) {
+        const person = state.admin?.profiles.find((p) => p.id === button.dataset.id);
+        if (!person || person.rol !== 'usuario' || person.id === state.session.user.id) return;
+        const restore = button.dataset.action === 'govern-restore-user';
+        const word = restore ? 'RESTAURAR' : 'ELIMINAR';
+        openModal(
+          restore ? 'Restaurar usuario' : 'Eliminar usuario',
+          `<form id="governDelete" data-id="${e(person.id)}" data-restore="${restore}"><p><strong>${e(person.nombres)}</strong> · ${e(person.correo)}</p><p>${restore ? 'Volverá al directorio. Si estaba suspendido antes de eliminarlo, esa suspensión se conserva y debe reactivarse por separado.' : 'El usuario saldrá del directorio y perderá el acceso a Calma Vial. La baja es recuperable desde Usuarios eliminados; conserva sus registros y su identidad de Supabase.'}</p><label for="deleteReason">Motivo</label><textarea id="deleteReason" name="motivo" minlength="10" maxlength="300" required></textarea><label for="deleteConfirmation">Escribe ${word} para confirmar</label><input id="deleteConfirmation" name="confirmacion" pattern="${word}" autocomplete="off" required /><div id="governFeedback" class="feedback" role="alert" hidden></div><div class="form-actions"><button class="button ${restore ? '' : 'danger'}" type="submit">${restore ? 'Confirmar restauración' : 'Confirmar eliminación'}</button><button class="button ghost" type="button" data-action="close-modal">Cancelar</button></div></form>`,
+        );
+      }
       if (button.dataset.action === 'govern-publish' && draft) {
         button.disabled = true;
         await api.publishQuestions(draft.questions, draft.reason, draft.base);
@@ -92,7 +115,7 @@ export function createGovernance({
   });
   document.addEventListener('submit', async (event) => {
     const form = event.target;
-    if (!['governQuestions', 'governAccount'].includes(form.id)) return;
+    if (!['governQuestions', 'governAccount', 'governDelete'].includes(form.id)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!authorized()) return;
@@ -102,7 +125,23 @@ export function createGovernance({
     button.disabled = true;
     try {
       const fields = Object.fromEntries(new FormData(form));
-      if (form.id === 'governQuestions') {
+      if (form.id === 'governDelete') {
+        await api.deleteAccount(
+          form.dataset.id,
+          form.dataset.restore === 'true',
+          fields.motivo,
+          fields.confirmacion,
+        );
+        if (!valid(stamp)) return;
+        closeModal();
+        await reload();
+        if (valid(stamp))
+          toast(
+            form.dataset.restore === 'true'
+              ? 'Usuario restaurado en el directorio.'
+              : 'Usuario eliminado. Puedes recuperarlo desde Usuarios eliminados.',
+          );
+      } else if (form.id === 'governQuestions') {
         const data = validateQuestionnaire(
           Array.from({ length: 14 }, (_, i) => fields[`question-${i}`]),
           fields.motivo,

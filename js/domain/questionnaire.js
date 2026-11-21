@@ -1,4 +1,4 @@
-import { QUESTIONS } from './domain.js?v=4aad031f6e83';
+import { QUESTIONS } from './domain.js?v=1d4126404cba';
 
 export function validateQuestionnaire(questions, reason) {
   if (!Array.isArray(questions) || questions.length !== 14)

@@ -105,6 +105,7 @@ test('El control administrativo revisa/publica preguntas, retira/restaura acceso
     profile: { rol: 'admin' },
     catalog: [{ id: 1, vigente: true, preguntas: original }],
     removedUsers: [],
+    deletedUsers: [],
     admin: {
       profiles: [
         { id: uid, rol: 'usuario', nombres: 'Persona de prueba', correo: 'qa@example.invalid' },
@@ -115,7 +116,21 @@ test('El control administrativo revisa/publica preguntas, retira/restaura acceso
     published = [],
     changes = [];
   let failPublish = false;
+  let failDelete = false;
+  const deleteCalls = [];
+  const deletionApi = createGovernanceApi({
+    rpc: async (rpc, args) => {
+      deleteCalls.push({ rpc, args });
+      return failDelete ? { error: new Error('Baja rechazada por el servidor') } : { data: true };
+    },
+  });
   const api = {
+    deleteAccount: async (id, restore, reason, confirmation) => {
+      await deletionApi.deleteAccount(id, restore, reason, confirmation);
+      state.deletedUsers = restore
+        ? []
+        : [{ usuario_id: id, motivo: reason, creado_en: new Date().toISOString() }];
+    },
     publishQuestions: async (...args) => {
       if (failPublish) throw new Error('Conflicto de publicación');
       published.push(args);
@@ -218,6 +233,47 @@ test('El control administrativo revisa/publica preguntas, retira/restaura acceso
     await submit('governAccount');
     assert.equal(changes[1].removed, false);
   });
+  await t.test(
+    'La baja exige motivo y palabra de confirmación, conserva errores y permite restaurar',
+    async () => {
+      document
+        .getElementById('page')
+        .insertAdjacentHTML(
+          'beforeend',
+          `<button data-action="govern-delete" data-id="${uid}">Eliminar usuario</button>`,
+        );
+      await click('[data-action="govern-delete"]');
+      assert.match(document.getElementById('body').textContent, /baja es recuperable/);
+      document.getElementById('deleteReason').value = 'corto';
+      document.getElementById('deleteConfirmation').value = 'ELIMINAR';
+      await submit('governDelete');
+      assert.equal(deleteCalls.length, 0);
+      document.getElementById('deleteReason').value = 'Baja sintética de prueba';
+      document.getElementById('deleteConfirmation').value = 'NO';
+      await submit('governDelete');
+      assert.equal(deleteCalls.length, 0);
+      document.getElementById('deleteConfirmation').value = 'ELIMINAR';
+      failDelete = true;
+      await submit('governDelete');
+      assert.equal(state.deletedUsers.length, 0);
+      assert.match(document.getElementById('governFeedback').textContent, /rechazada/);
+      assert.equal(document.querySelector('#governDelete [type="submit"]').disabled, false);
+      failDelete = false;
+      await submit('governDelete');
+      assert.equal(state.deletedUsers.length, 1);
+      document
+        .getElementById('page')
+        .insertAdjacentHTML('beforeend', '<button data-action="govern-deleted">Bajas</button>');
+      await click('[data-action="govern-deleted"]');
+      assert.match(document.getElementById('body').textContent, /Baja sintética de prueba/);
+      await click('[data-action="govern-restore-user"]');
+      document.getElementById('deleteReason').value = 'Restauración sintética de prueba';
+      document.getElementById('deleteConfirmation').value = 'RESTAURAR';
+      await submit('governDelete');
+      assert.equal(state.deletedUsers.length, 0);
+      assert.equal(deleteCalls.at(-1).args.p_restaurar, true);
+    },
+  );
   await t.test(
     'El diagnóstico consulta datos reales de la API y descarta respuestas tras salir',
     async () => {

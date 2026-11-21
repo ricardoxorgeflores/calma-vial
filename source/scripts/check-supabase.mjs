@@ -61,6 +61,17 @@ try {
     ['calmavial_archivar', { p_tipo: 'evaluaciones', p_id: 1 }],
     ['calmavial_restaurar', { p_tipo: 'evaluaciones', p_id: 1 }],
     ['calmavial_papelera', {}],
+    ['calmavial_usuarios_baja', {}],
+    [
+      'calmavial_baja_usuario',
+      {
+        p_usuario_id: '00000000-0000-4000-8000-000000000019',
+        p_restaurar: false,
+        p_motivo: 'Comprobación anónima bloqueada',
+        p_confirmacion: 'ELIMINAR',
+      },
+    ],
+    ['calmavial_diagnostico', {}],
   ]) {
     const denied = await fetch(new URL('/rest/v1/rpc/' + rpc, config.supabaseUrl), {
       method: 'POST',

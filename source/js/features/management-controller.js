@@ -32,7 +32,7 @@ export function createManagementController({
   const current = (stamp) => context().revision === stamp && Boolean(context().session);
   const find = (id) => model.items?.find((row) => row.id === id);
   function redraw() {
-    if (['sugerencias', 'admin'].includes(context().view)) render();
+    if (['sugerencias', 'pendientes', 'admin'].includes(context().view)) render();
   }
   async function load() {
     if (!context().session || model.loading) return;
@@ -277,6 +277,9 @@ export function createManagementController({
   return {
     render: () => inboxView(model, admin()),
     load,
+    setFilter(value) {
+      model.filter = value;
+    },
     reset() {
       listRequest++;
       threadRequest++;

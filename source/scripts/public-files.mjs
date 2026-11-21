@@ -11,6 +11,7 @@ export const publicFiles = [
   'js/domain/questionnaire.js',
   'js/services/governance-api.js',
   'js/features/governance.js',
+  'js/features/admin-dashboards.js',
   'js/auth/auth-ui.js',
   'js/domain/domain.js',
   'js/services/api.js',

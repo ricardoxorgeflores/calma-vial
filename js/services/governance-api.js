@@ -1,4 +1,4 @@
-import { validateQuestionnaire } from '../domain/questionnaire.js?v=4aad031f6e83';
+import { validateQuestionnaire } from '../domain/questionnaire.js?v=1d4126404cba';
 const unwrap = (result) => {
   if (result.error) throw result.error;
   return result.data;
@@ -31,6 +31,28 @@ export function createGovernanceApi(db) {
       }
     },
     accountStates: async () => unwrap(await db.rpc('calmavial_estado_usuarios')),
+    deletedAccounts: async () => unwrap(await db.rpc('calmavial_usuarios_baja')),
+    deleteAccount: async (id, restore, reason, confirmation) => {
+      if (
+        typeof restore !== 'boolean' ||
+        typeof reason !== 'string' ||
+        reason.trim().length < 10 ||
+        reason.trim().length > 300
+      )
+        throw new Error('Escribe un motivo de 10 a 300 caracteres.');
+      if (confirmation !== (restore ? 'RESTAURAR' : 'ELIMINAR'))
+        throw new Error(`Escribe ${restore ? 'RESTAURAR' : 'ELIMINAR'} para confirmar.`);
+      const result = unwrap(
+        await db.rpc('calmavial_baja_usuario', {
+          p_usuario_id: uuid(id),
+          p_restaurar: restore,
+          p_motivo: reason.trim(),
+          p_confirmacion: confirmation,
+        }),
+      );
+      if (result !== true) throw new Error('El servidor no confirmó el cambio.');
+      return result;
+    },
     changeAccount: async (id, removed, reason) => {
       if (
         typeof removed !== 'boolean' ||

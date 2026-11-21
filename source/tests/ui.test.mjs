@@ -142,6 +142,7 @@ const fakeDB = {
   rpc: (_name, args) => {
     if (_name === 'calmavial_cuenta_activa') return Promise.resolve({ data: true, error: null });
     if (_name === 'calmavial_estado_usuarios') return Promise.resolve({ data: [], error: null });
+    if (_name === 'calmavial_usuarios_baja') return Promise.resolve({ data: [], error: null });
     if (_name === 'calmavial_informe') {
       const rows = records.evaluaciones
         .filter(
@@ -387,12 +388,62 @@ test('La interfaz completa trabaja con el contrato compartido de la API', async 
       await tick();
       await tick();
       assert.equal(document.getElementById('adminNav').hidden, false);
-      assert.match(document.getElementById('page').textContent, /Factores de la comunidad/);
+      assert.match(document.getElementById('page').textContent, /Qué puedes gestionar/);
       assert.match(document.getElementById('page').textContent, /Tu comunidad/);
       assert.equal(document.getElementById('appScreen').classList.contains('is-admin'), true);
+      assert.equal(document.querySelectorAll('a.metric-card').length, 4);
+      const destinations = [
+        ['#usuarios', 'Usuarios y evolución'],
+        ['#evaluaciones-admin', 'Evaluaciones de la comunidad'],
+        ['#pendientes', 'Atención pendiente'],
+        ['#participacion', 'Participación de usuarios'],
+      ];
+      for (const [href, title] of destinations) {
+        await route('#admin');
+        click(`.platform-metrics a[href="${href}"] strong`);
+        await tick();
+        assert.equal(location.hash, href);
+        assert.match(document.querySelector('#page h1').textContent, new RegExp(title));
+      }
+      await route('#evaluaciones-admin');
+      click('[data-action="manage-evaluation"]');
+      await tick();
+      assert.match(
+        document.getElementById('modalTitle').textContent,
+        /Respuestas de la evaluación/,
+      );
+      click('#modalClose');
+      for (const [href, title] of [
+        ['#usuarios', 'Usuarios y evolución'],
+        ['#sugerencias', 'Bandeja de atención'],
+        ['#avisos', 'Avisos de la plataforma'],
+      ]) {
+        await route('#admin');
+        click(`.admin-shortcuts a[href="${href}"] h2`);
+        await tick();
+        assert.match(document.querySelector('#page h1').textContent, new RegExp(title));
+      }
       await route('#usuarios');
-      assert.match(document.getElementById('page').textContent, /Distribución de resultados/);
-      assert.equal(document.querySelectorAll('.metric-card').length, 4);
+      records.perfiles.push({
+        id: '00000000-0000-4000-8000-000000000033',
+        rol: 'usuario',
+        nombres: 'Cuenta de prueba',
+        correo: 'qa33@example.invalid',
+      });
+      click('#refreshBtn');
+      await tick();
+      await tick();
+      click('[data-action="govern-delete"]');
+      await tick();
+      assert.match(document.getElementById('modalTitle').textContent, /Eliminar usuario/);
+      assert.ok(document.getElementById('deleteConfirmation'));
+      click('#modalClose');
+      records.perfiles.pop();
+      assert.doesNotMatch(
+        document.getElementById('page').textContent,
+        /Factores de la comunidad|Distribución de resultados/,
+      );
+      assert.equal(document.querySelectorAll('.metric-card').length, 0);
       click('[data-action="manage-user"]');
       await tick();
       assert.match(document.getElementById('modalBody').textContent, /42 \/ 70/);
