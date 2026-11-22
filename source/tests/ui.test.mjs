@@ -35,6 +35,7 @@ const records = {
   diario: [],
 };
 let stallReads = false;
+let readError = null;
 let failDiaryWrite = false;
 const pendingReads = [];
 const resumeReads = () => {
@@ -90,6 +91,8 @@ class Query {
       return new Promise((resume) => pendingReads.push(resume)).then(() =>
         this.then(resolve, reject),
       );
+    if (this.op === 'read' && readError)
+      return Promise.resolve({ data: null, error: readError }).then(resolve, reject);
     if (this.table === 'diario' && this.op === 'insert' && failDiaryWrite) {
       failDiaryWrite = false;
       return Promise.resolve({
@@ -836,6 +839,62 @@ test('La interfaz completa trabaja con el contrato compartido de la API', async 
         assert.equal(location.hash, 'iniciar-sesion');
         await route('#admin');
         assert.equal(document.getElementById('appScreen').hidden, true);
+      }
+    },
+  );
+  await t.test(
+    'Cerrar sesión descarta errores tardíos y acepta una sesión ya cerrada',
+    async () => {
+      records.perfiles[0].rol = 'usuario';
+      click('[data-action="login-role"][data-value="usuario"]');
+      fakeDB.auth.signInWithPassword = async () => ({ data: { session }, error: null });
+      document.getElementById('authEmail').value = 'test@example.com';
+      document.getElementById('authPass').value = 'clave-local';
+      document
+        .getElementById('authForm')
+        .dispatchEvent(new window.Event('submit', { bubbles: true }));
+      await tick();
+      await tick();
+      await route('#inicio');
+      // Una caducidad real sigue siendo visible antes de que el usuario solicite salir.
+      readError = new Error('JWT expired');
+      click('#refreshBtn');
+      await tick();
+      assert.match(document.getElementById('page').textContent, /Tu sesión venció/);
+      readError = null;
+      click('#refreshBtn');
+      await tick();
+      let finishLogout;
+      const previousSignOut = fakeDB.auth.signOut;
+      fakeDB.auth.signOut = () =>
+        new Promise((resolve) => {
+          finishLogout = resolve;
+        });
+      try {
+        stallReads = true;
+        click('#refreshBtn');
+        await tick();
+        assert.ok(pendingReads.length > 0);
+        click('#logoutBtn');
+        readError = new Error('JWT expired');
+        resumeReads();
+        await tick();
+        assert.doesNotMatch(document.getElementById('page').textContent, /Tu sesión venció/);
+        assert.doesNotMatch(document.getElementById('toast').textContent, /Tu sesión venció/);
+        finishLogout({
+          data: null,
+          error: { name: 'AuthSessionMissingError', message: 'Auth session missing!' },
+        });
+        await tick();
+        assert.equal(document.getElementById('authScreen').hidden, false);
+        assert.equal(document.getElementById('page').textContent, '');
+        assert.equal(document.getElementById('authFeedback').hidden, true);
+        assert.match(document.getElementById('toast').textContent, /Cerraste tu sesión/);
+        assert.equal(document.getElementById('toast').classList.contains('error'), false);
+      } finally {
+        readError = null;
+        resumeReads();
+        fakeDB.auth.signOut = previousSignOut;
       }
     },
   );

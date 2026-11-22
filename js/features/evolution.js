@@ -1,5 +1,5 @@
-import { evolution } from '../domain/management.js?v=c08542ce77f3';
-import { escapeHtml as e, displayDate } from '../ui/format.js?v=c08542ce77f3';
+import { evolution } from '../domain/management.js?v=d01259cf245b';
+import { escapeHtml as e, displayDate } from '../ui/format.js?v=d01259cf245b';
 // SVG nativo: legible sin librerías externas y acompañado de una tabla accesible.
 export function evolutionChart(rows, title = 'Evolución de las evaluaciones') {
   const points = evolution(rows);

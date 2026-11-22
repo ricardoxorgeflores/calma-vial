@@ -5,8 +5,8 @@ import {
   adminUserDetail,
   evaluationDetail,
   adminProfileForm,
-} from './management-views.js?v=c08542ce77f3';
-import { escapeHtml as e, displayName } from '../ui/format.js?v=c08542ce77f3';
+} from './management-views.js?v=d01259cf245b';
+import { escapeHtml as e, displayName } from '../ui/format.js?v=d01259cf245b';
 
 // El estado de las conversaciones pertenece a una sesión y se invalida al salir.
 export function createManagementController({

@@ -1,6 +1,6 @@
-import { escapeHtml as e } from '../ui/format.js?v=c08542ce77f3';
-import { QUESTIONS, FACTORS } from '../domain/domain.js?v=c08542ce77f3';
-import { validateQuestionnaire } from '../domain/questionnaire.js?v=c08542ce77f3';
+import { escapeHtml as e } from '../ui/format.js?v=d01259cf245b';
+import { QUESTIONS, FACTORS } from '../domain/domain.js?v=d01259cf245b';
+import { validateQuestionnaire } from '../domain/questionnaire.js?v=d01259cf245b';
 
 // No conserva diagnósticos ni formularios de una sesión anterior.
 export function createGovernance({

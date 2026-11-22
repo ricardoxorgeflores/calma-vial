@@ -3,22 +3,22 @@ import {
   adminPopulation,
   evaluationDashboard,
   participationDashboard,
-} from './features/admin-dashboards.js?v=c08542ce77f3';
-import { createGovernance } from './features/governance.js?v=c08542ce77f3';
-import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=c08542ce77f3';
-import { createManagementApi } from './services/management-api.js?v=c08542ce77f3';
-import { createManagementController } from './features/management-controller.js?v=c08542ce77f3';
-import { evolutionChart } from './features/evolution.js?v=c08542ce77f3';
-import { icon, passwordToggle } from './ui/icons.js?v=c08542ce77f3';
-import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=c08542ce77f3';
-import { api, db, unwrap } from './services/api.js?v=c08542ce77f3';
-import { prepareAvatar } from './features/avatar.js?v=c08542ce77f3';
+} from './features/admin-dashboards.js?v=d01259cf245b';
+import { createGovernance } from './features/governance.js?v=d01259cf245b';
+import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=d01259cf245b';
+import { createManagementApi } from './services/management-api.js?v=d01259cf245b';
+import { createManagementController } from './features/management-controller.js?v=d01259cf245b';
+import { evolutionChart } from './features/evolution.js?v=d01259cf245b';
+import { icon, passwordToggle } from './ui/icons.js?v=d01259cf245b';
+import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=d01259cf245b';
+import { api, db, unwrap } from './services/api.js?v=d01259cf245b';
+import { prepareAvatar } from './features/avatar.js?v=d01259cf245b';
 import {
   createReportPdf,
   loadReportFonts,
   loadPdfEngine,
   REPORT_DISCLAIMER,
-} from './features/report.js?v=c08542ce77f3';
+} from './features/report.js?v=d01259cf245b';
 import {
   QUESTIONS,
   LABELS,
@@ -34,7 +34,7 @@ import {
   validateEmail,
   validatePassword,
   calculate,
-} from './domain/domain.js?v=c08542ce77f3';
+} from './domain/domain.js?v=d01259cf245b';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -522,7 +522,7 @@ function dashboard() {
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
         <div class="hero-wheel" aria-hidden="true">
-          <img src="./assets/images/logo.svg?v=c08542ce77f3" alt="" />
+          <img src="./assets/images/logo.svg?v=d01259cf245b" alt="" />
         </div>
       </section>
       <div class="stats-grid">
@@ -1532,7 +1532,7 @@ function render() {
 
 // Cargar perfil y registros sin aplicar resultados de una sesión anterior.
 async function loadData({ quiet = false } = {}) {
-  if (!state.session || state.loading) return false;
+  if (!state.session || state.loading || signingOut) return false;
   const revision = state.revision,
     userId = state.session.user.id;
   state.loading = true;
@@ -1603,6 +1603,7 @@ async function loadData({ quiet = false } = {}) {
 }
 
 async function loadAdmin() {
+  if (!state.session || signingOut) return;
   const revision = state.revision;
   try {
     const result = await api.admin();
@@ -1891,10 +1892,19 @@ $('forgotBtn').addEventListener('click', () => {
 async function signOutAndShowLogin() {
   if (signingOut) return;
   signingOut = true;
+  // Invalidar lecturas en curso antes de revocar la sesión: sus respuestas ya no
+  // pertenecen a una vista activa y no deben anunciar una caducidad al salir.
+  state.revision++;
+  state.loading = false;
   const accessRevision = accessUI.getState().revision;
   try {
-    unwrap(await db.auth.signOut({ scope: 'local' }));
+    const result = await db.auth.signOut({ scope: 'local' });
+    const alreadySignedOut =
+      result.error?.name === 'AuthSessionMissingError' ||
+      result.error?.code === 'session_not_found';
+    if (!alreadySignedOut) unwrap(result);
     await receiveSession(null);
+    feedback('authFeedback', '');
     if (accessRevision === accessUI.getState().revision) authMode('login');
     location.hash = 'iniciar-sesion';
     toast('Cerraste tu sesión en este dispositivo.');
@@ -2513,6 +2523,7 @@ window.addEventListener('online', () => {
 // No reemplazar formularios ni interrumpir el ejercicio mientras el usuario los usa.
 async function autoRefresh() {
   if (
+    signingOut ||
     !state.session ||
     document.hidden ||
     $('modal').open ||
@@ -2523,6 +2534,7 @@ async function autoRefresh() {
   )
     return;
   await loadData({ quiet: true });
+  if (!state.session || signingOut) return;
   if (ADMIN_VIEWS.includes(state.view) && state.profile?.rol === 'admin') await loadAdmin();
   if (['sugerencias', 'pendientes'].includes(state.view)) await managementController.load();
   if (state.view === 'avisos') await loadNotices();
