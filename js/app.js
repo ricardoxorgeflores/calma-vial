@@ -3,22 +3,22 @@ import {
   adminPopulation,
   evaluationDashboard,
   participationDashboard,
-} from './features/admin-dashboards.js?v=1c52f699db4b';
-import { createGovernance } from './features/governance.js?v=1c52f699db4b';
-import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=1c52f699db4b';
-import { createManagementApi } from './services/management-api.js?v=1c52f699db4b';
-import { createManagementController } from './features/management-controller.js?v=1c52f699db4b';
-import { evolutionChart } from './features/evolution.js?v=1c52f699db4b';
-import { icon, passwordToggle } from './ui/icons.js?v=1c52f699db4b';
-import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=1c52f699db4b';
-import { api, db, unwrap } from './services/api.js?v=1c52f699db4b';
-import { prepareAvatar } from './features/avatar.js?v=1c52f699db4b';
+} from './features/admin-dashboards.js?v=c08542ce77f3';
+import { createGovernance } from './features/governance.js?v=c08542ce77f3';
+import { originalQuestionnaire, questionsFor } from './domain/questionnaire.js?v=c08542ce77f3';
+import { createManagementApi } from './services/management-api.js?v=c08542ce77f3';
+import { createManagementController } from './features/management-controller.js?v=c08542ce77f3';
+import { evolutionChart } from './features/evolution.js?v=c08542ce77f3';
+import { icon, passwordToggle } from './ui/icons.js?v=c08542ce77f3';
+import { EMOTIONS, DIARY_INTENSITIES, diaryEmotion, composeReaction } from './domain/management.js?v=c08542ce77f3';
+import { api, db, unwrap } from './services/api.js?v=c08542ce77f3';
+import { prepareAvatar } from './features/avatar.js?v=c08542ce77f3';
 import {
   createReportPdf,
   loadReportFonts,
   loadPdfEngine,
   REPORT_DISCLAIMER,
-} from './features/report.js?v=1c52f699db4b';
+} from './features/report.js?v=c08542ce77f3';
 import {
   QUESTIONS,
   LABELS,
@@ -34,7 +34,7 @@ import {
   validateEmail,
   validatePassword,
   calculate,
-} from './domain/domain.js?v=1c52f699db4b';
+} from './domain/domain.js?v=c08542ce77f3';
 
 // Estado compartido y utilidades de presentación.
 const $ = (id) => document.getElementById(id);
@@ -522,7 +522,7 @@ function dashboard() {
           <a class="button mint-button" href="#calma">Tomarme una pausa <span>↗</span></a>
         </div>
         <div class="hero-wheel" aria-hidden="true">
-          <img src="./assets/images/logo.svg?v=1c52f699db4b" alt="" />
+          <img src="./assets/images/logo.svg?v=c08542ce77f3" alt="" />
         </div>
       </section>
       <div class="stats-grid">

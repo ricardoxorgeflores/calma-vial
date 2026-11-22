@@ -1,6 +1,6 @@
 {
-  "version": "3.4.0",
-  "release": "1c52f699db4b",
+  "version": "3.4.1",
+  "release": "c08542ce77f3",
   "files": [
     "index.html",
     "css/tokens.css",
@@ -30,7 +30,7 @@
     "js/ui/format.js",
     "js/ui/icons.js",
     "assets/images/logo.svg",
-    "assets/images/calma-f1.jpeg",
+    "assets/images/calma-f1-transparent.png",
     "assets/fonts/Roboto.ttf",
     "assets/fonts/Roboto-Regular.ttf",
     "assets/fonts/Roboto-Bold.ttf",

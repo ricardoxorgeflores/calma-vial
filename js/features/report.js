@@ -1,4 +1,4 @@
-import { recommendations, FACTORS } from '../domain/domain.js?v=1c52f699db4b';
+import { recommendations, FACTORS } from '../domain/domain.js?v=c08542ce77f3';
 
 export const REPORT_DISCLAIMER =
   'Este informe es educativo y orientativo. No es un diagnóstico, no evalúa la aptitud para conducir y no sustituye una valoración médica o psicológica. Si el malestar persiste, afecta tu vida cotidiana o te preocupa, busca valoración de un profesional de salud. No tomes decisiones clínicas basándote solo en estos resultados.';
@@ -8,8 +8,8 @@ let fontsPromise;
 export function loadReportFonts() {
   fontsPromise ||= Promise.all(
     [
-      new URL('../../assets/fonts/Roboto-Regular.ttf?v=1c52f699db4b', import.meta.url),
-      new URL('../../assets/fonts/Roboto-Bold.ttf?v=1c52f699db4b', import.meta.url),
+      new URL('../../assets/fonts/Roboto-Regular.ttf?v=c08542ce77f3', import.meta.url),
+      new URL('../../assets/fonts/Roboto-Bold.ttf?v=c08542ce77f3', import.meta.url),
     ].map(async (url) => {
       const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error('No se pudo cargar la tipografía del informe.');
@@ -178,7 +178,7 @@ export function createReportPdf(report, Pdf, fonts) {
 let engineLoading;
 export async function loadPdfEngine() {
   if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
-  engineLoading ??= import('../../vendor/jspdf.umd.min.js?v=1c52f699db4b').catch((error) => {
+  engineLoading ??= import('../../vendor/jspdf.umd.min.js?v=c08542ce77f3').catch((error) => {
     engineLoading = null;
     throw error;
   });

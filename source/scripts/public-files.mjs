@@ -28,7 +28,7 @@ export const publicFiles = [
   'js/ui/format.js',
   'js/ui/icons.js',
   'assets/images/logo.svg',
-  'assets/images/calma-f1.jpeg',
+  'assets/images/calma-f1-transparent.png',
   'assets/fonts/Roboto.ttf',
   'assets/fonts/Roboto-Regular.ttf',
   'assets/fonts/Roboto-Bold.ttf',

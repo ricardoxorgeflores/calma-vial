@@ -29,6 +29,6 @@ for (const [file, original] of contents) {
 await writeFile(new URL('../dist/.nojekyll', import.meta.url), '');
 await writeFile(
   new URL('../dist/release.json', import.meta.url),
-  JSON.stringify({ version: '3.4.0', release, files: publicFiles }, null, 2) + '\n',
+  JSON.stringify({ version: '3.4.1', release, files: publicFiles }, null, 2) + '\n',
 );
-console.log(`Calma Vial 3.4.0 preparada en dist/ · recursos ${release}`);
+console.log(`Calma Vial 3.4.1 preparada en dist/ · recursos ${release}`);

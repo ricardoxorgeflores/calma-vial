@@ -1,4 +1,4 @@
-import { validateQuestionnaire } from '../domain/questionnaire.js?v=1c52f699db4b';
+import { validateQuestionnaire } from '../domain/questionnaire.js?v=c08542ce77f3';
 const unwrap = (result) => {
   if (result.error) throw result.error;
   return result.data;
