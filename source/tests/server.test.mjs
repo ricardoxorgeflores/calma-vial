@@ -49,19 +49,15 @@ for (const basePath of ['/', '/calma-vial/'])
       '/css/base.css',
       '/css/tokens.css',
       '/css/motion.css',
-      '/assets/images/calma-car.png',
+      '/css/racing.css',
+      '/assets/images/calma-f1.jpeg',
       '/vendor/supabase.js',
     ])
       assert.equal((await fetch(origin + route)).status, 200, route);
     assert.match(home.headers.get('content-security-policy'), /font-src 'self'/);
-    const car = await fetch(`${origin}/assets/images/calma-car.png`);
-    assert.equal(car.headers.get('content-type'), 'image/png');
-    assert.equal(
-      Buffer.from(await car.arrayBuffer())
-        .subarray(1, 4)
-        .toString('ascii'),
-      'PNG',
-    );
+    const car = await fetch(`${origin}/assets/images/calma-f1.jpeg`);
+    assert.equal(car.headers.get('content-type'), 'image/jpeg');
+    assert.deepEqual([...Buffer.from(await car.arrayBuffer()).subarray(0, 3)], [255, 216, 255]);
     const font = await fetch(`${origin}/assets/fonts/Roboto.ttf`);
     assert.equal(font.status, 200);
     assert.equal(font.headers.get('content-type'), 'font/ttf');

@@ -2,7 +2,7 @@
 
 [Probar la aplicación](https://ricardoxorgeflores.github.io/calma-vial/) · [Cómo colaborar](CONTRIBUTING.md)
 
-Versión 3.3: navegación operable, vistas administrativas separadas, filtros de evaluaciones y participación, y eliminación recuperable de usuarios con confirmación y auditoría.
+Versión 3.4: fotografía de Fórmula 1, tema negro carbono/grafito/turquesa y textos de acceso simplificados. Conserva las funciones administrativas de la revisión 3.3.
 
 ## Para tus compañeros
 
@@ -22,4 +22,5 @@ Antes de proponer cambios: npm run format:check, npm test y npm run build. GitHu
 
 Supabase administra Auth, PostgreSQL y RLS. El cliente incluye solamente configuración pública. Los colaboradores no reciben acceso administrativo a la base ni datos de cuentas. Los scripts SQL requieren aplicación separada y pruebas transaccionales.
 
-[Decisiones y evidencia de la revisión](source/docs/REVISION_3_3.md). Las pruebas de interfaz simuladas no equivalen a una prueba física de Android ni a una certificación clínica o de seguridad.
+[Decisiones y evidencia de la revisión](source/docs/REVISION_3_4.md). Las pruebas de interfaz simuladas no equivalen a una prueba física de Android ni a una certificación clínica o de seguridad.
+

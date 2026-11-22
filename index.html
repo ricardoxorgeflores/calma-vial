@@ -8,27 +8,28 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob: https://wezudavlgzyevhlchuww.supabase.co; connect-src 'self' https://wezudavlgzyevhlchuww.supabase.co wss://wezudavlgzyevhlchuww.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
-    <meta name="theme-color" content="#007f79" />
+    <meta name="theme-color" content="#0c1011" />
     <meta
       name="description"
-      content="Tu espacio para conocer tus emociones al conducir. Evaluaciones DAS, diario y modo calma, conectados a tu app Calma Vial."
+      content="Tu espacio para conocer tus emociones al conducir. Evaluaciones DAS, diario y modo calma, en tu espacio Calma Vial."
     />
     <title>Calma Vial · Tu espacio para conducir en calma</title>
-    <link rel="icon" href="./assets/images/logo.svg?v=1d4126404cba" type="image/svg+xml" />
-    <link rel="stylesheet" href="./css/tokens.css?v=1d4126404cba" />
-    <link rel="stylesheet" href="./css/base.css?v=1d4126404cba" />
-    <link rel="stylesheet" href="./css/auth.css?v=1d4126404cba" />
-    <link rel="stylesheet" href="./css/motion.css?v=1d4126404cba" />
-    <link rel="stylesheet" href="./css/workspace.css?v=1d4126404cba" />
-    <script src="./js/auth/auth-ui.js?v=1d4126404cba" defer></script>
-    <script src="./vendor/supabase.js?v=1d4126404cba" data-supabase-sdk defer></script>
-    <script type="module" src="./js/bootstrap.js?v=1d4126404cba"></script>
+    <link rel="icon" href="./assets/images/logo.svg?v=de5064fc2f9b" type="image/svg+xml" />
+    <link rel="stylesheet" href="./css/tokens.css?v=de5064fc2f9b" />
+    <link rel="stylesheet" href="./css/base.css?v=de5064fc2f9b" />
+    <link rel="stylesheet" href="./css/auth.css?v=de5064fc2f9b" />
+    <link rel="stylesheet" href="./css/motion.css?v=de5064fc2f9b" />
+    <link rel="stylesheet" href="./css/workspace.css?v=de5064fc2f9b" />
+    <link rel="stylesheet" href="./css/racing.css?v=de5064fc2f9b" />
+    <script src="./js/auth/auth-ui.js?v=de5064fc2f9b" defer></script>
+    <script src="./vendor/supabase.js?v=de5064fc2f9b" data-supabase-sdk defer></script>
+    <script type="module" src="./js/bootstrap.js?v=de5064fc2f9b"></script>
   </head>
   <body>
     <a class="skip" href="#main">Saltar al contenido</a>
     <!-- Acceso: presentación de la marca y formulario de autenticación. -->
     <section id="runtimeNotice" class="runtime-notice" role="status">
-      <img src="./assets/images/logo.svg?v=1d4126404cba" width="52" height="52" alt="Calma Vial" />
+      <img src="./assets/images/logo.svg?v=de5064fc2f9b" width="52" height="52" alt="Calma Vial" />
       <h1>Abre Calma Vial desde su servidor</h1>
       <p>
         Un archivo <code>file:///</code> no puede ejecutar los módulos de acceso. Abre
@@ -49,16 +50,16 @@
           <span class="hero-road"></span>
           <img
             class="hero-car"
-            src="./assets/images/calma-car.png?v=1d4126404cba"
-            width="1920"
-            height="819"
+            src="./assets/images/calma-f1.jpeg?v=de5064fc2f9b"
+            width="399"
+            height="501"
             alt=""
             decoding="async"
             fetchpriority="high"
           />
         </div>
         <a class="brand light" href="#inicio"
-          ><img src="./assets/images/logo.svg?v=1d4126404cba" alt="" width="48" height="48" /><span
+          ><img src="./assets/images/logo.svg?v=de5064fc2f9b" alt="" width="48" height="48" /><span
             >Calma Vial<small>BIENESTAR EN CADA RECORRIDO</small></span
           ></a
         >
@@ -300,7 +301,7 @@
             <span class="sync-symbol" aria-hidden="true">⇄</span>
             <div>
               <strong>Una cuenta. Todo tu recorrido.</strong>
-              <p>Tus evaluaciones y tu diario, conectados a la app móvil.</p>
+              <p>Tus evaluaciones y tu diario en un solo lugar.</p>
             </div>
           </div>
         </div>
@@ -314,7 +315,7 @@
     <div id="appScreen" class="app-shell" hidden>
       <aside class="sidebar">
         <a href="#inicio" class="brand"
-          ><img src="./assets/images/logo.svg?v=1d4126404cba" width="43" height="43" alt="" /><span
+          ><img src="./assets/images/logo.svg?v=de5064fc2f9b" width="43" height="43" alt="" /><span
             >Calma Vial<small>TU ESPACIO PERSONAL</small></span
           ></a
         ><span class="nav-label" id="personalNavLabel">MI CAMINO</span>
@@ -347,7 +348,7 @@
         <div class="sidebar-bottom">
           <div class="mobile-note">
             <span>⇄</span><strong>Siempre contigo</strong>
-            <p>La misma cuenta.<br />Tu app y tu web.</p>
+            <p>Un espacio para ti.<br />Avanza a tu ritmo.</p>
           </div>
           <a
             href="#perfil"

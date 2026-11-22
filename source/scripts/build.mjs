@@ -20,7 +20,7 @@ for (const [file, original] of contents) {
     content =
       file === 'index.html' ? canonicalHtml(original.toString('utf8')) : original.toString('utf8');
     content = content.replace(
-      /(["'])((?:\.\.\/|\.\/)+[^"'?#]+\.(?:js|css|svg|ttf|png))\1/g,
+      /(["'])((?:\.\.\/|\.\/)+[^"'?#]+\.(?:js|css|svg|ttf|png|jpeg))\1/g,
       (_match, quote, dependency) => `${quote}${dependency}?v=${release}${quote}`,
     );
   }
@@ -29,6 +29,6 @@ for (const [file, original] of contents) {
 await writeFile(new URL('../dist/.nojekyll', import.meta.url), '');
 await writeFile(
   new URL('../dist/release.json', import.meta.url),
-  JSON.stringify({ version: '3.3.0', release, files: publicFiles }, null, 2) + '\n',
+  JSON.stringify({ version: '3.4.0', release, files: publicFiles }, null, 2) + '\n',
 );
-console.log(`Calma Vial 3.3.0 preparada en dist/ · recursos ${release}`);
+console.log(`Calma Vial 3.4.0 preparada en dist/ · recursos ${release}`);

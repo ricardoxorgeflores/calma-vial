@@ -12,7 +12,7 @@ test('La publicación conserva rutas relativas y versiona toda la cadena de mód
     const target = new URL('../dist/' + file, import.meta.url);
     const source = await readFile(target, 'utf8');
     for (const match of source.matchAll(
-      /(["'])((?:\.\.\/|\.\/)+[^"'?#]+\.(?:js|css|svg|ttf|png))(\?v=([a-f0-9]{12}))?\1/g,
+      /(["'])((?:\.\.\/|\.\/)+[^"'?#]+\.(?:js|css|svg|ttf|png|jpeg))(\?v=([a-f0-9]{12}))?\1/g,
     )) {
       references++;
       assert.ok(match[4], `Recurso sin versión en ${file}: ${match[2]}`);

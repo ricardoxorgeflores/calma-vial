@@ -1,6 +1,6 @@
 {
-  "version": "3.3.0",
-  "release": "1d4126404cba",
+  "version": "3.4.0",
+  "release": "de5064fc2f9b",
   "files": [
     "index.html",
     "css/tokens.css",
@@ -8,6 +8,7 @@
     "css/auth.css",
     "css/motion.css",
     "css/workspace.css",
+    "css/racing.css",
     "js/bootstrap.js",
     "js/app.js",
     "js/domain/questionnaire.js",
@@ -29,7 +30,7 @@
     "js/ui/format.js",
     "js/ui/icons.js",
     "assets/images/logo.svg",
-    "assets/images/calma-car.png",
+    "assets/images/calma-f1.jpeg",
     "assets/fonts/Roboto.ttf",
     "assets/fonts/Roboto-Regular.ttf",
     "assets/fonts/Roboto-Bold.ttf",
