@@ -1,5 +1,5 @@
-import { validateThread, validateReply, THREAD_STATES } from '../domain/management.js?v=de5064fc2f9b';
-import { validateProfile } from '../domain/domain.js?v=de5064fc2f9b';
+import { validateThread, validateReply, THREAD_STATES } from '../domain/management.js?v=1c52f699db4b';
+import { validateProfile } from '../domain/domain.js?v=1c52f699db4b';
 const unwrap = (result) => {
   if (result.error) throw result.error;
   return result.data;

@@ -1,4 +1,4 @@
-import { escapeHtml as e, displayName, displayDate } from '../ui/format.js?v=de5064fc2f9b';
+import { escapeHtml as e, displayName, displayDate } from '../ui/format.js?v=1c52f699db4b';
 
 export const ADMIN_VIEWS = [
   'admin',

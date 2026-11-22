@@ -4,4 +4,4 @@ Se sustituye el automóvil anterior por la fotografía F1 aportada por el usuari
 
 La administración de la página depende de public.perfiles.rol=admin, asignado por el propietario en Supabase; los permisos de GitHub son independientes. No se ascienden cuentas en esta revisión.
 
-Verificación: formato correcto, 98 pruebas automáticas aprobadas y build de5064fc2f9b. Navegador real: panel administrativo existente y acceso revisados; móvil 390 x 844 sin desbordamiento horizontal ni superposición entre foto y texto. Se corrigió la respuesta MIME JPEG del servidor local; se verifican firma JPEG y disponibilidad en las dos rutas. No se modificaron datos ni permisos de cuentas.
+Verificación final: formato correcto, 98 pruebas aprobadas, build 1c52f699db4b. Acceso y panel administrativo revisados en navegador real. Móvil 390 x 844 sin desbordamiento horizontal ni superposición entre fotografía y texto. Referencias móviles retiradas también al seleccionar Crear cuenta. Sin cambios de datos ni privilegios de cuentas.

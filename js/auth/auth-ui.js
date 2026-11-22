@@ -77,7 +77,7 @@
     $('signupTab').tabIndex = signup() ? 0 : -1;
     $('authTitle').textContent = signup() ? 'Crea tu cuenta' : 'Bienvenido de nuevo';
     $('authIntro').textContent = signup()
-      ? 'Empieza tu recorrido. Tu cuenta también funciona en la app móvil.'
+      ? 'Empieza tu recorrido y construye hábitos para conducir con más calma.'
       : 'Entra a tu espacio y continúa tu recorrido con más calma.';
     $('authPass').autocomplete = signup() ? 'new-password' : 'current-password';
     $('authPass').minLength = signup() ? 8 : 6;
